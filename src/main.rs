@@ -1,13 +1,15 @@
-use std::{slice::SliceIndex, vec::Drain};
+use std::vec::Drain;
 
 type Error = Box<dyn std::error::Error>;
 type Int = i32;
 
+#[derive(Default, Copy, Clone)]
 struct IntNodeIdx {
     level: usize,
     idx: usize,
 }
 
+#[derive(Default, Copy, Clone)]
 struct IntIdx {
     level: usize,
     idx: usize,
@@ -15,8 +17,8 @@ struct IntIdx {
 
 trait ValueStore<'a, I, T> {
     fn peek(&'a self, idx: &I) -> &'a [T];
-    fn push_values(&mut self, values: &[T]) -> I;
-    fn pop(&mut self) -> Drain<T>;
+    fn push_values(&mut self, level: usize, values: &[T]) -> I;
+    fn pop(&mut self, level: usize) -> Drain<T>;
 }
 
 trait ProgramStore<'a, K, V: ?Sized> {
@@ -54,49 +56,71 @@ impl Store {
 
 impl<'a> ValueStore<'a, IntIdx, Int> for Store {
     fn peek(&'a self, idx: &IntIdx) -> &'a [Int] {
-        &self.int_values[idx.0..idx.0 + self.contexts]
+        let level_idx = idx.level;
+        let level_store = &self.levels[level_idx];
+        &level_store.int_values[idx.idx..idx.idx + self.contexts]
     }
 
-    fn push_values(&mut self, values: &[Int]) -> IntIdx {
+    fn push_values(&mut self, level_idx: usize, values: &[Int]) -> IntIdx {
         assert!(values.len() == self.contexts);
 
-        let idx = self.int_values.len();
-        for v in values {
-            self.int_values.push(v.clone());
+        while level_idx >= self.levels.len() {
+            self.levels.push(LevelStore::new());
         }
 
-        idx.into()
+        let level = &mut self.levels[level_idx];
+
+        let idx = level.int_values.len();
+        for v in values {
+            level.int_values.push(v.clone());
+        }
+
+        IntIdx {
+            level: level_idx,
+            idx: idx.into(),
+        }
     }
 
-    fn pop(&mut self) -> Drain<Int> {
-        self.int_values
-            .drain(self.int_values.len() - self.contexts..self.int_values.len())
+    fn pop(&mut self, level: usize) -> Drain<Int> {
+        let level = &mut self.levels[level];
+        level
+            .int_values
+            .drain(level.int_values.len() - self.contexts..level.int_values.len())
     }
 }
 
 impl<'a> ProgramStore<'a, IntNodeIdx, dyn Node<Int>> for Store {
     fn get(&'a self, idx: &IntNodeIdx) -> &Box<dyn Node<Int>> {
-        &self.int_programs[idx.0]
+        &self.levels[idx.level].int_programs[idx.idx]
     }
 
-    fn push_node(&'a mut self, value: Box<dyn Node<Int>>) -> IntNodeIdx {
-        let idx = self.int_programs.len();
-        self.int_programs.push(value);
-        idx.into()
+    fn push_node(&'a mut self, node: Box<dyn Node<Int>>) -> IntNodeIdx {
+        let level_idx = node.level();
+        let level = &mut self.levels[level_idx];
+        let idx = level.int_programs.len();
+        level.int_programs.push(node);
+        IntNodeIdx {
+            level: level_idx,
+            idx,
+        }
     }
 }
 
 trait Node<T> {
     fn values<'a>(&self, store: &'a Store) -> &'a [T];
     fn code(&self, store: &Store) -> String;
+    fn level(&self) -> usize;
 }
 
 trait LiteralNode<T>: Node<T> {
     fn new(value: T, store: &mut Store) -> Self;
 }
 
-trait BinaryNode<T>: Node<T> {
-    fn new(lhs_idx: usize, rhs_idx: usize, store: &mut Store) -> Self;
+trait BinaryNode<'a, T, I>: Node<T>
+where
+    Store: ProgramStore<'a, I, dyn Node<T>>,
+{
+    fn new(lhs_idx: I, rhs_idx: I, store: &mut Store) -> Self;
 }
 
 struct IntLiteral {
@@ -112,13 +136,17 @@ impl Node<Int> for IntLiteral {
     fn code(&self, _: &Store) -> String {
         self.value.to_string()
     }
+
+    fn level(&self) -> usize {
+        0
+    }
 }
 
 impl LiteralNode<Int> for IntLiteral {
     fn new(value: Int, store: &mut Store) -> Self {
         // Insert the value into the store |context| times
         let values = vec![value; store.contexts];
-        let idx = store.push_values(&values);
+        let idx = store.push_values(0, &values);
         Self { value, idx }
     }
 }
@@ -141,12 +169,16 @@ impl Node<Int> for IntAddition {
             store.get(&self.rhs).code(store)
         )
     }
+
+    fn level(&self) -> usize {
+        self.lhs.level + self.rhs.level + 1
+    }
 }
 
-impl BinaryNode<Int> for IntAddition {
-    fn new(lhs_idx: usize, rhs_idx: usize, store: &mut Store) -> Self {
-        let lhs_idx = IntNodeIdx(lhs_idx);
-        let rhs_idx = IntNodeIdx(rhs_idx);
+impl BinaryNode<'_, Int, IntNodeIdx> for IntAddition {
+    fn new(lhs_idx: IntNodeIdx, rhs_idx: IntNodeIdx, store: &mut Store) -> Self {
+        // Level is size!
+        let level = lhs_idx.level + rhs_idx.level + 1;
         let lsh = store.get(&lhs_idx);
         let rhs = store.get(&rhs_idx);
         let values: Vec<i32> = lsh
@@ -155,7 +187,7 @@ impl BinaryNode<Int> for IntAddition {
             .zip(rhs.values(store))
             .map(|(l, r)| l + r)
             .collect();
-        let idx: IntIdx = store.push_values(&values);
+        let idx: IntIdx = store.push_values(level, &values);
 
         IntAddition {
             lhs: lhs_idx,
@@ -167,41 +199,80 @@ impl BinaryNode<Int> for IntAddition {
 
 trait NodeBuilder<T> {
     // TODO Use Iter trait
-    fn next(&mut self) -> Option<Box<dyn Node<T>>>;
+    fn next(&mut self, store: &mut Store) -> Option<Box<dyn Node<T>>>;
+    fn set_level(&mut self, level: usize);
 }
 
-struct IntAdditionBuilder<'a> {
-    store: &'a mut Store,
-    curr_lhs: usize,
-    curr_rhs: usize,
+struct IntAdditionBuilder {
+    level: usize,
+    curr_lhs: IntNodeIdx,
+    curr_rhs: IntNodeIdx,
 }
 
-impl<'a> IntAdditionBuilder<'a> {
-    fn new(store: &'a mut Store) -> Self {
+impl IntAdditionBuilder {
+    fn new() -> Self {
         Self {
-            store,
-            curr_lhs: 0,
-            curr_rhs: 0,
+            level: 1,
+            curr_lhs: IntNodeIdx::default(),
+            curr_rhs: IntNodeIdx::default(),
         }
     }
 }
 
-impl<'a> NodeBuilder<Int> for IntAdditionBuilder<'a> {
-    fn next(&'a mut self) -> Option<Box<dyn Node<Int>>> {
-        let int_values = self.store.int_values.len();
-        if int_values <= self.curr_rhs {
-            self.curr_lhs += 1;
+fn next_indices(
+    lhs: &mut IntNodeIdx,
+    rhs: &mut IntNodeIdx,
+    level: usize,
+    store: &Store) -> bool {
 
-            if int_values <= self.curr_lhs {
-                return None;
+    // First, step!
+    let rhs_nodes = store.levels[rhs.level].int_programs.len();
+    if rhs.idx >= rhs_nodes {
+        // Move lhs
+        let lhs_nodes = store.levels[lhs.level].int_programs.len();
+
+        if lhs.idx >= lhs_nodes {
+            if lhs.level + 1 == level {
+                return false;
             }
-
-            self.curr_rhs = 0;
+            // Move levels!
+            lhs.level += 1;
+            rhs.level = level - lhs.level - 1;
+        } else {
+            lhs.idx += 1;
+            rhs.idx = 0;
         }
+    } else {
+        // Move rhs
+        rhs.idx += 1;
+    }
 
-        let rs = IntAddition::new(self.curr_lhs, self.curr_rhs, self.store);
-        self.curr_rhs += 1;
-        Some(Box::new(rs))
+    // Now see if we succeeded
+    if lhs.level < store.levels.len() &&
+        rhs.level < store.levels.len() &&
+        lhs.idx < store.levels[lhs.level].int_values.len() &&
+        rhs.idx < store.levels[rhs.level].int_values.len() {
+        true
+    } else if lhs.level >= store.levels.len() {
+        // We're out of levels!
+        false
+    } else {
+        next_indices(lhs, rhs, level, store)
+    }
+}
+
+impl NodeBuilder<Int> for IntAdditionBuilder {
+    fn next(&mut self, store: &mut Store) -> Option<Box<dyn Node<Int>>> {
+        if next_indices(&mut self.curr_lhs, &mut self.curr_rhs, self.level, store) {
+            let rs = IntAddition::new(self.curr_lhs, self.curr_rhs, store);
+            Some(Box::new(rs))
+        } else {
+            None
+        }
+    }
+
+    fn set_level(&mut self, level: usize) {
+        self.level = level;
     }
 }
 
@@ -212,19 +283,42 @@ struct Vocab {
 struct Synthesizer {
     store: Store,
     vocab: Vocab,
+    curr_vocab: usize,
 }
 
 impl Synthesizer {
     fn new() -> Self {
-        let store = Store::new(1);
+        let mut store = Store::new(1);
 
         // Add literals
+        for i in -1i32..2 {
+            let node = Box::new(IntLiteral::new(i, &mut store));
+            store.push_node(node);
+        }
 
-        builders = vec![]
+        let vocab = Vocab {
+            int: vec![Box::new(IntAdditionBuilder::new())],
+        };
+
+        Self {
+            store,
+            vocab,
+            curr_vocab: 0,
+        }
+    }
+
+    fn next(&mut self) -> Box<dyn Node<Int>> {
+        self.vocab.int[self.curr_vocab]
+            .next(&mut self.store)
+            .unwrap()
     }
 }
 
 fn main() -> Result<(), Error> {
     println!("Hello, synthesis!");
+    let mut synth = Synthesizer::new();
+    for _ in 0..100 {
+        println!("{}", synth.next().code(&synth.store));
+    }
     Ok(())
 }
