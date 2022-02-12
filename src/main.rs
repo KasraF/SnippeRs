@@ -19,7 +19,7 @@ use crate::utils::GeneratorStore;
 use crate::utils::{Error, Idx};
 
 fn main() -> Result<(), Error> {
-    let contexts = 1;
+    let contexts = 1;	
     let gen = BinaryGenerator::new(1, Idx::new(0, 0), Idx::new(0, 0), &(IntAddition::new));
 
     let generator_store = GeneratorStore {
