@@ -1,12 +1,14 @@
+#![feature(trait_alias)]
+
 use crate::store::Store;
 use crate::synth::*;
 use crate::task::Task;
 use crate::utils::*;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::Read;
 
 mod nodes;
+mod predicates;
 mod store;
 mod synth;
 mod task;

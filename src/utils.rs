@@ -9,7 +9,7 @@ pub type BinValueFn<L, R, T> = fn((&L, &R)) -> T;
 pub type BinCodeFn = fn(&str, &str) -> String;
 pub type BinValidatorFn<L, R> = fn(&[L], &[R]) -> bool;
 
-pub type Builder<T: Value> = Box<dyn Fn(usize) -> Box<dyn Enumerator<T>>>;
+pub type Builder<T> = Box<dyn Fn(usize) -> Box<dyn Enumerator<T>>>;
 
 pub trait Value: Debug + Hash + 'static {}
 impl Value for Int {}
@@ -45,3 +45,9 @@ impl<T: Value> Index<T> {
         }
     }
 }
+
+pub trait GenericPred<T> {
+    fn matches(&self, program: &dyn Program<T>) -> bool;
+}
+
+pub trait Predicate: GenericPred<Int> + GenericPred<Str> {}

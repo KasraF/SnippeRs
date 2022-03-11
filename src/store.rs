@@ -76,12 +76,17 @@ impl Store {
         let int_vars = task
             .ints()
             .into_iter()
-            .map(|(name, values)| Variable::new(name, values))
+            // TODO Why is the explicit cast required?!
+            .map(|(name, values)| Variable::new(name, values) as Box<dyn Program<Int>>)
+            .collect();
+        let str_vars = task
+            .strs()
+            .into_iter()
+            .map(|(name, values)| Variable::new(name, values) as Box<dyn Program<Str>>)
             .collect();
 
-        let mut ints = [int_vars, Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-
-        let strs = [Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+        let ints = [int_vars, Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+        let strs = [str_vars, Vec::new(), Vec::new(), Vec::new(), Vec::new()];
 
         Self {
             ints,

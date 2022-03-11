@@ -7,9 +7,9 @@ use serde::Deserialize;
 
 use crate::utils::*;
 
-#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
 #[serde(untagged)]
-enum InputValue {
+pub enum InputValue {
     Wot,
     Int(i32),
     Str(String),
@@ -154,5 +154,9 @@ impl Task {
             }
         }
         rs
+    }
+
+    pub fn outputs(&self) -> Vec<InputValue> {
+        self.examples.iter().map(|ex| ex.output.clone()).collect()
     }
 }

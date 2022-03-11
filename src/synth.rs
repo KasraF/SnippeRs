@@ -1,4 +1,4 @@
-use crate::{nodes::*, store::*, utils::*, *};
+use crate::{nodes::*, predicates::ValuePredicate, store::*, utils::*, *};
 
 enum SynthEnum {
     Int(usize, Box<dyn Enumerator<Int>>),
@@ -10,6 +10,7 @@ pub struct Synthesizer {
     int_enums: Vec<Builder<Int>>,
     str_enums: Vec<Builder<Str>>,
     curr_enum: SynthEnum,
+    pred: Box<dyn Predicate>,
     size: usize,
 }
 
@@ -31,11 +32,14 @@ impl Synthesizer {
 
         let curr_enum = SynthEnum::Int(0, int_enums[0](size));
 
+        let pred = Box::new(ValuePredicate::new(&task));
+
         Self {
             store: Store::new(task),
             int_enums,
             str_enums,
             curr_enum,
+            pred,
             size,
         }
     }
@@ -79,16 +83,26 @@ impl Iterator for Synthesizer {
                 let program = e.next(&self.store).unwrap();
                 let idx = self.store.put(program);
                 if let Some(idx) = idx {
-                    let code = self.store.get_unchecked(idx).code(&self.store);
-                    dbg!(code);
+                    let program = self.store.get_unchecked(idx);
+                    let code = program.code(&self.store);
+                    dbg!(&code);
+
+                    if self.pred.matches(program.as_ref()) {
+                        return Some(Some(code));
+                    }
                 }
             }
             SynthEnum::Str(_, e) => {
                 let program = e.next(&self.store).unwrap();
                 let idx = self.store.put(program);
                 if let Some(idx) = idx {
-                    let code = self.store.get_unchecked(idx).code(&self.store);
-                    dbg!(code);
+                    let program = self.store.get_unchecked(idx);
+                    let code = program.code(&self.store);
+                    dbg!(&code);
+
+                    if self.pred.matches(program.as_ref()) {
+                        return Some(Some(code));
+                    }
                 }
             }
         }
