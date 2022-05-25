@@ -3,6 +3,9 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 pub type Int = i32;
 pub type Str = String;
+pub type ListType<T> = Vec<T>;
+pub type IntList = ListType<Int>;
+pub type StrList = ListType<Str>;
 // type Bool = bool;
 
 pub type BinValueFn<L, R, T> = fn((&L, &R)) -> T;
@@ -11,9 +14,10 @@ pub type BinValidatorFn<L, R> = fn(&[L], &[R]) -> bool;
 
 pub type Builder<T> = Box<dyn Fn(usize) -> Box<dyn Enumerator<T>>>;
 
-pub trait Value: Debug + Hash + 'static {}
+pub trait Value: Debug + Hash + Clone + 'static {}
 impl Value for Int {}
 impl Value for Str {}
+impl<T> Value for ListType<T> where T: Value {}
 
 pub const MAX_SIZE: usize = 4;
 
@@ -50,4 +54,7 @@ pub trait GenericPred<T> {
     fn matches(&self, program: &dyn Program<T>) -> bool;
 }
 
-pub trait Predicate: GenericPred<Int> + GenericPred<Str> {}
+pub trait Predicate:
+    GenericPred<Int> + GenericPred<Str> + GenericPred<IntList> + GenericPred<StrList>
+{
+}

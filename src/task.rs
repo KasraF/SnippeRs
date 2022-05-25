@@ -13,6 +13,8 @@ pub enum InputValue {
     Wot,
     Int(i32),
     Str(String),
+    IntList(Vec<i32>),
+    StrList(Vec<String>),
 }
 
 impl BuildHasher for InputValue {
@@ -146,6 +148,50 @@ impl Task {
                                     InputValue::Str(v) => v.clone(),
                                     _ => unreachable!(),
                                 }
+                            })
+                            .collect(),
+                    ));
+                }
+                _ => (),
+            }
+        }
+        rs
+    }
+
+    pub fn intlists(&self) -> Vec<(String, Vec<IntList>)> {
+        let mut rs = Vec::new();
+        for (var, value) in &self.examples[0].inputs {
+            match value {
+                InputValue::IntList(_) => {
+                    rs.push((
+                        var.to_string(),
+                        self.examples
+                            .iter()
+                            .map(|ex| match &ex.inputs[var] {
+                                InputValue::IntList(v) => v.clone(),
+                                _ => unreachable!(),
+                            })
+                            .collect(),
+                    ));
+                }
+                _ => (),
+            }
+        }
+        rs
+    }
+
+    pub fn strlists(&self) -> Vec<(String, Vec<StrList>)> {
+        let mut rs = Vec::new();
+        for (var, value) in &self.examples[0].inputs {
+            match value {
+                InputValue::StrList(_) => {
+                    rs.push((
+                        var.to_string(),
+                        self.examples
+                            .iter()
+                            .map(|ex| match &ex.inputs[var] {
+                                InputValue::StrList(v) => v.clone(),
+                                _ => unreachable!(),
                             })
                             .collect(),
                     ));

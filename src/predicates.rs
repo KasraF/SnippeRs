@@ -1,12 +1,14 @@
 use crate::{
     task::{InputValue, Task},
-    utils::{GenericPred, Int, Predicate, Str},
+    utils::{GenericPred, Int, IntList, Predicate, Str, StrList},
     Program,
 };
 
 pub enum ValuePredicate {
     Int(Vec<Int>),
     Str(Vec<Str>),
+    IntList(Vec<IntList>),
+    StrList(Vec<StrList>),
 }
 
 impl ValuePredicate {
@@ -33,7 +35,27 @@ impl ValuePredicate {
                     .collect();
                 Self::Str(values)
             }
-            _ => unreachable!(),
+            InputValue::IntList(_) => {
+                let values: Vec<IntList> = outputs
+                    .iter()
+                    .map(|o| match o {
+                        InputValue::IntList(s) => s.clone(),
+                        _ => unreachable!(),
+                    })
+                    .collect();
+                Self::IntList(values)
+            }
+            InputValue::StrList(_) => {
+                let values: Vec<StrList> = outputs
+                    .iter()
+                    .map(|o| match o {
+                        InputValue::StrList(s) => s.clone(),
+                        _ => unreachable!(),
+                    })
+                    .collect();
+                Self::StrList(values)
+            }
+            InputValue::Wot => unreachable!(),
         }
     }
 }
@@ -51,6 +73,26 @@ impl GenericPred<Int> for ValuePredicate {
 impl GenericPred<Str> for ValuePredicate {
     fn matches(&self, program: &dyn Program<Str>) -> bool {
         if let ValuePredicate::Str(ss) = self {
+            program.values() == ss
+        } else {
+            false
+        }
+    }
+}
+
+impl GenericPred<IntList> for ValuePredicate {
+    fn matches(&self, program: &dyn Program<IntList>) -> bool {
+        if let ValuePredicate::IntList(ss) = self {
+            program.values() == ss
+        } else {
+            false
+        }
+    }
+}
+
+impl GenericPred<StrList> for ValuePredicate {
+    fn matches(&self, program: &dyn Program<StrList>) -> bool {
+        if let ValuePredicate::StrList(ss) = self {
             program.values() == ss
         } else {
             false

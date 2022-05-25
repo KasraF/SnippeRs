@@ -32,37 +32,6 @@ pub trait Program<T> {
     fn code(&self, store: &Store) -> String;
 }
 
-fn unary_true_validator<A>(_: &[A]) -> bool {
-    true
-}
-
-fn bin_true_validator<L, R>(_: &[L], _: &[R]) -> bool {
-    true
-}
-fn add_value((lhs, rhs): (&Int, &Int)) -> Int {
-    lhs + rhs
-}
-
-fn add_code(lhs: &str, rhs: &str) -> String {
-    format!("{} + {}", lhs, rhs)
-}
-
-fn sub_value((lhs, rhs): (&Int, &Int)) -> Int {
-    lhs - rhs
-}
-
-fn sub_code(lhs: &str, rhs: &str) -> String {
-    format!("{} - {}", lhs, rhs)
-}
-
-fn to_string_code(arg: &str) -> String {
-    format!("str({})", arg)
-}
-
-fn to_string_value(arg: &Int) -> String {
-    arg.to_string()
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get a task!
     let mut args = std::env::args();
@@ -84,6 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for p in synth {
         if let Some(code) = p {
             println!("Done: {}", code);
+            break;
         }
     }
 

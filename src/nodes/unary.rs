@@ -114,3 +114,58 @@ where
         self.size
     }
 }
+
+pub fn unary_true_validator<A>(_: &[A]) -> bool {
+    true
+}
+
+pub fn to_string_code(arg: &str) -> String {
+    format!("str({arg})")
+}
+
+pub fn to_string_value(arg: &Int) -> String {
+    arg.to_string()
+}
+
+// StringSplit
+pub fn string_split_code(arg: &str) -> String {
+    format!("{arg}.split()")
+}
+
+pub fn string_split_value(arg: &Str) -> StrList {
+    arg.split_ascii_whitespace()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+pub fn list_len_code(arg: &str) -> String {
+    format!("len({arg})")
+}
+
+pub fn list_len_value<V>(arg: &ListType<V>) -> Int
+where
+    V: Value,
+{
+    arg.len() as i32
+}
+
+// String to Int
+// Length
+// String lower
+// String upper
+// Max
+// Min
+// Sorted String List
+// Sorted Int List
+
+// Lte
+// Gt
+// String concat
+// SubString
+// Int Addition
+// Int subtraction
+// int division
+// Find
+// Contains
+// Count
+// StringJoin

@@ -152,3 +152,33 @@ where
         self.size
     }
 }
+
+pub fn bin_true_validator<L, R>(_: &[L], _: &[R]) -> bool {
+    true
+}
+pub fn add_value((lhs, rhs): (&Int, &Int)) -> Int {
+    lhs + rhs
+}
+
+pub fn add_code(lhs: &str, rhs: &str) -> String {
+    format!("{lhs} + {rhs}")
+}
+
+pub fn sub_value((lhs, rhs): (&Int, &Int)) -> Int {
+    lhs - rhs
+}
+
+pub fn sub_code(lhs: &str, rhs: &str) -> String {
+    format!("{lhs} - {rhs}")
+}
+
+pub fn list_concat_value<V>((lhs, rhs): (&ListType<V>, &ListType<V>)) -> ListType<V>
+where
+    V: Value,
+{
+    lhs.iter().chain(rhs).map(|v| v.clone()).collect()
+}
+
+pub fn list_concat_code(lhs: &str, rhs: &str) -> String {
+    format!("{lhs} + {rhs}")
+}
