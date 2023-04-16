@@ -1,12 +1,7 @@
 use serde::Deserialize;
 use std::{collections::HashMap, fs::File, io::BufReader};
 
-type Int = i32;
-type Str = String;
-type Bool = bool;
-type IntArray = Vec<Int>;
-type StrArray = Vec<Str>;
-type BoolArray = Vec<Bool>;
+use crate::utils::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Typ {
@@ -40,21 +35,10 @@ impl<'de> Deserialize<'de> for Typ {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(untagged)]
-pub enum TaskVal {
-    Int(Int),
-    Str(Str),
-    Bool(Bool),
-    IntArray(IntArray),
-    StrArray(StrArray),
-    BoolArray(BoolArray),
-}
-
-#[derive(Deserialize, Debug)]
 pub struct Example {
-    input: HashMap<String, TaskVal>,
-    state: Option<HashMap<String, TaskVal>>,
-    output: Option<TaskVal>,
+    pub input: HashMap<String, Value>,
+    pub state: Option<HashMap<String, Value>>,
+    pub output: Option<Value>,
 }
 
 /// A synthesis "Task", parsed from JSON.
@@ -62,25 +46,25 @@ pub struct Example {
 pub struct Task {
     /// A URL pointing to the source/inspiration for this task.
     #[serde(rename = "source")]
-    src: String,
+    pub src: String,
     /// The available variables, and their types.
     #[serde(rename = "variables")]
-    vars: HashMap<String, Typ>,
+    pub vars: HashMap<String, Typ>,
     /// Additional Int literals.
     #[serde(rename = "intLiterals", default)]
-    int_lit: Vec<Int>,
+    pub int_lit: Vec<Int>,
     /// Additional Str literals.
     #[serde(rename = "strLiterals", default)]
-    str_lit: Vec<String>,
+    pub str_lit: Vec<String>,
     /// The return type of the task. `None` if the task only modifies the state.
     #[serde(rename = "returnType")]
-    ret_typ: Option<Typ>,
+    pub ret_typ: Option<Typ>,
     /// The set of examples. Cannot be empty.
     #[serde(rename = "examples")]
-    examples: Vec<Example>,
+    pub examples: Vec<Example>,
     /// A list of hand-written "solutions".
     #[serde(rename = "solution")]
-    sol: Option<Vec<String>>,
+    pub sol: Option<Vec<String>>,
 }
 
 impl Task {

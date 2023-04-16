@@ -1,0 +1,65 @@
+use std::marker::PhantomData;
+
+use crate::{task::Task, utils::*};
+
+trait Val: Eq {}
+impl Val for Int {}
+impl Val for Str {}
+impl Val for Bool {}
+impl Val for IntArray {}
+impl Val for StrArray {}
+impl Val for BoolArray {}
+
+struct Index<T: Val> {
+    start: usize,
+    len: usize,
+    _phantom_data: PhantomData<T>,
+}
+
+struct Store {
+
+}
+
+struct Program<T: Val> {
+	data: Index<T>,
+	code: Fn() -> String,
+}
+
+struct Vocab {}
+
+impl Vocab {
+    fn new(_task: &Task) -> Self {
+        Vocab {}
+    }
+}
+
+struct Enumerator {}
+
+impl Enumerator {
+    fn next(&mut self) -> Option<Program> {
+        None
+    }
+}
+
+pub struct Synth {
+    vocab: Vocab,
+    enums: Vec<Enumerator>,
+    ret_val: Vec<Option<Value>>,
+}
+
+impl Synth {
+    pub fn new(task: Task) -> Self {
+        let vocab = Vocab::new(&task);
+        let mut ret_val = Vec::with_capacity(task.examples.len());
+
+        for ex in task.examples {
+            ret_val.push(ex.output)
+        }
+
+        Self { vocab, ret_val }
+    }
+
+    pub fn solve(&mut self) -> Option<String> {
+        None
+    }
+}
