@@ -20,7 +20,7 @@ pub enum Value {
     BoolArray(BoolArray),
 }
 
-pub trait Val: Eq {}
+pub trait Val: Eq + 'static {}
 impl Val for Int {}
 impl Val for Str {}
 impl Val for Bool {}

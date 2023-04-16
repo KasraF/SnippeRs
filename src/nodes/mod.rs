@@ -6,11 +6,13 @@ use crate::{
 mod binary;
 mod unary;
 
+pub type NodeEnumBuilder<O: Val> = &'static dyn Fn(&Store) -> dyn NodeEnum<O>;
+
 pub trait NodeEnum<O: Val> {
     fn next(&mut self) -> Box<dyn MaybeNode<O>>;
 }
 
-impl<O: Val> Iterator for NodeEnum<O> {
+impl<O: Val> Iterator for dyn NodeEnum<O> {
     type Item = Box<dyn MaybeNode<O>>;
 
     fn next(&mut self) -> Option<Self::Item> {

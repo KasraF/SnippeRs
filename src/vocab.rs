@@ -2,8 +2,8 @@ use crate::nodes::*;
 use crate::utils::*;
 
 pub enum NodeEnumWrapper {
-    Int(Box<dyn NodeEnum<Int>>),
-    IntArray(Box<dyn NodeEnum<IntArray>>),
+    Int(NodeEnumBuilder<Int>),
+    IntArray(NodeEnumBuilder<IntArray>),
 }
 
 pub struct Vocab {
@@ -11,7 +11,7 @@ pub struct Vocab {
 }
 
 impl Vocab {
-    pub fn new(node_enums: Vec<dyn NodeEnumBuilder>) -> Self {
+    pub fn new(node_enums: Vec<NodeEnumWrapper>) -> Self {
         Self { node_enums }
     }
 
@@ -20,22 +20,27 @@ impl Vocab {
     }
 }
 
-impl Default for Vocab {
-    fn default() -> Self {
-        let node_enums = vec![];
-        Vocab::new(node_enums)
-    }
-}
-
 pub struct VocabIter<'a> {
     idx: usize,
     vocab: &'a Vocab,
 }
 
+impl<'a> VocabIter<'a> {
+    fn new(vocab: &'a Vocab) -> Self {
+        Self { idx: 0, vocab }
+    }
+}
+
 impl<'a> Iterator for VocabIter<'a> {
-    type Item = &'a dyn NodeEnumBuilder;
+    type Item = NodeEnumWrapper;
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        if self.idx < self.vocab.node_enums.len() {
+            let rs = self.vocab.node_enums[self.idx];
+            self.idx += 1;
+            Some(rs)
+        } else {
+            None
+        }
     }
 }

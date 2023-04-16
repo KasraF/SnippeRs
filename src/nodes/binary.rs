@@ -116,3 +116,11 @@ fn true_check<L, R>(lhs: L, rhs: R) -> bool {
 fn add_op(lhs: Int, rhs: Int) -> Int {
     return lhs + rhs;
 }
+
+fn add_code(lhs: &str, rhs: &str) -> String {
+    format!("{lhs} + {rhs}")
+}
+
+fn add_node<'s>(store: &Store) -> Box<BinEnum<'s, Int, Int, Int>> {
+    BinEnum::new(add_op, &true_check, &add_code, store)
+}

@@ -19,8 +19,8 @@ where
     vocab: VocabIter<'a>,
 }
 
-impl<'a> Enumerator<'a> {
-    pub fn new(ctx: Contexts, vocab: Vocab) -> Self {
+impl<'a, 's: 'a> Enumerator<'a, 's> {
+    pub fn new(ctx: Contexts, vocab: &'a Vocab) -> Self {
         let store = Store::new(ctx.len());
         let vocab_iter = vocab.iter();
         let node_enum = vocab_iter.next();

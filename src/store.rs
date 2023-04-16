@@ -12,7 +12,7 @@ pub trait ProgramStore<'a, T: Val> {
         }
     }
     fn insert(&mut self, xs: &[T]) -> Index<T>;
-    fn program<'s>(&'s self, idx: Index<T>) -> &'s Node<T>;
+    fn program<'s>(&'s self, idx: Index<T>) -> &'s dyn Node<T>;
     fn values<'s>(&'s self, idx: Index<T>) -> &'s [T];
     fn has(&self, idx: Index<T>) -> bool;
 }
@@ -54,27 +54,28 @@ impl<'a> ProgramStore<'a, Int> for Store<'a> {
         Index::new(start)
     }
 
-    fn program<'s>(&'s self, idx: Index<IntArray>) -> &'s Node<IntArray> {
+    fn program<'s>(&'s self, idx: Index<Int>) -> &'s dyn Node<Int> {
         debug_assert!(self.ints.len() > idx.idx, "Index does not exist: {}", idx);
         debug_assert!(
-            idx.start % self.ex == 0,
+            idx.idx % self.ex == 0,
             "Index didn't start at a boundary: {}",
             idx
         );
-        &self.ints[idx.idx]
+        self.ints[idx.idx].as_ref()
     }
 
-    fn values(&'a self, idx: Index<Int>) -> Option<&'a [Int]> {
-        if self.int_vals.len() <= idx.start + self.ex {
-            debug_assert!(
-                idx.start % self.ex == 0,
-                "Index didn't start at a boundary: {}",
-                idx
-            );
-            Some(&self.int_vals[idx.start..idx.start + self.ex])
-        } else {
-            None
-        }
+    fn values<'s>(&'s self, idx: Index<Int>) -> &'s [Int] {
+        debug_assert!(
+            self.int_vals.len() <= idx.idx + self.ex,
+            "Index does not exist: {}",
+            idx
+        );
+        debug_assert!(
+            idx.idx % self.ex == 0,
+            "Index didn't start at a boundary: {}",
+            idx
+        );
+        &self.int_vals[idx.idx..idx.idx + self.ex]
     }
 
     fn has(&self, idx: Index<Int>) -> bool {
@@ -93,34 +94,35 @@ impl<'a> ProgramStore<'a, IntArray> for Store<'a> {
         Index::new(start)
     }
 
-    fn program<'s>(&'s self, idx: Index<IntArray>) -> &'s Node<IntArray> {
+    fn program<'s>(&'s self, idx: Index<IntArray>) -> &'s dyn Node<IntArray> {
         debug_assert!(
             self.int_arrs.len() > idx.idx,
             "Index does not exist: {}",
             idx
         );
         debug_assert!(
-            idx.start % self.ex == 0,
+            idx.idx % self.ex == 0,
             "Index didn't start at a boundary: {}",
             idx
         );
-        &self.int_arrs[idx.idx]
+        self.int_arrs[idx.idx].as_ref()
     }
 
-    fn values(&'a self, idx: Index<IntArray>) -> &'a [IntArray] {
-        if self.int_vals.len() <= idx.start + self.ex {
-            debug_assert!(
-                idx.start % self.ex == 0,
-                "Index didn't start at a boundary: {:?}",
-                idx
-            );
-            Some(&self.int_arr_vals[idx.start..idx.start + self.ex])
-        } else {
-            None
-        }
+    fn values<'s>(&'s self, idx: Index<IntArray>) -> &'s [IntArray] {
+        debug_assert!(
+            self.int_vals.len() <= idx.idx + self.ex,
+            "Index does not exist: {}",
+            idx
+        );
+        debug_assert!(
+            idx.idx % self.ex == 0,
+            "Index didn't start at a boundary: {:?}",
+            idx
+        );
+        &self.int_arr_vals[idx.idx..idx.idx + self.ex]
     }
 
-    fn has(&self, idx: Index<Int>) -> bool {
+    fn has(&self, idx: Index<IntArray>) -> bool {
         self.int_arr_vals.len() > idx.idx
     }
 }
