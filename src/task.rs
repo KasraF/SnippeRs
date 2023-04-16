@@ -74,6 +74,8 @@ impl Task {
         let rs = serde_json::from_reader(reader)?;
         Ok(rs)
     }
+
+    pub fn get_context(&self) -> Context {}
 }
 
 #[cfg(test)]

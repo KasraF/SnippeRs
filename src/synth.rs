@@ -1,4 +1,4 @@
-use crate::{store::Store, task::Task};
+use crate::{enumer::Enumerator, store::Store, task::Task};
 
 struct Vocab {}
 
@@ -8,16 +8,22 @@ impl Vocab {
     }
 }
 
-pub struct Synth<'a> {
-    store: Store<'a>,
+pub struct Synth {
+    store: Store,
     vocab: Vocab,
+    enumerator: Enumerator,
 }
 
-impl<'a> Synth<'a> {
+impl Synth {
     pub fn new(task: Task) -> Self {
         let vocab = Vocab::new(&task);
         let store = Store::new(task.examples.len());
-        Self { vocab, store }
+        let enumerator = Enumerator::new(task.get_context(), &vocab);
+        Self {
+            vocab,
+            store,
+            enumerator,
+        }
     }
 
     pub fn solve(&mut self) -> Option<String> {

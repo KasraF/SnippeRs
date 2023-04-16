@@ -9,7 +9,7 @@ pub struct BinEnum<'s, L: Val, R: Val, O: Val> {
     op: BinOp<L, R, O>,
     check: BinCheck<L, R>,
     code: BinCode,
-    store: &'s Store<'s>,
+    store: &'s Store,
     lhs_idx: Index<L>,
     rhs_idx: Index<R>,
 }
@@ -29,8 +29,15 @@ impl<'s, L: Val, R: Val, O: Val> BinEnum<'s, L, R, O> {
     }
 }
 
-impl<'s, L: Val, R: Val, O: Val> NodeEnum<O> for BinEnum<'s, L, R, O> {
-    fn next(&mut self) -> Box<dyn MaybeNode<O>> {
+impl<'s, L: Val, R: Val, O: Val> Iterator for BinEnum<'s, L, R, O>
+where
+    Store: ProgramStore<L>,
+    Store: ProgramStore<R>,
+    Store: ProgramStore<O>,
+{
+    type Item = Box<dyn MaybeNode<O>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
         // See if we're done
         if !self.store.has(self.lhs_idx) {
             debug_assert!(
@@ -52,13 +59,14 @@ impl<'s, L: Val, R: Val, O: Val> NodeEnum<O> for BinEnum<'s, L, R, O> {
         // Build a new node
         let lhs = self.store.values(self.lhs_idx);
         let rhs = self.store.values(self.rhs_idx);
-        let values = self.op(lhs, rhs);
+        let values = (self.op)(lhs, rhs);
+
         // TODO Also need to check that the inputs are valid
         let rs = BinNodeMaybe::new(self.lhs_idx, self.rhs_idx, self.code, values);
 
         // TODO Increment the indices
 
-        Some(rs)
+        Some(Box::new(rs))
     }
 }
 
@@ -69,7 +77,15 @@ pub struct BinNodeMaybe<L: Val, R: Val, O: Val> {
     values: Vec<O>,
 }
 
-impl<L: Val, R: Val, O: Val> BinNodeMaybe<L, R, O> {
+impl<'s, L: Val, R: Val, O: Val> BinNodeMaybe<L, R, O>
+where
+    L: Val,
+    R: Val,
+    O: Val,
+    Store: ProgramStore<L>,
+    Store: ProgramStore<R>,
+    Store: ProgramStore<O>,
+{
     fn new(lhs: Index<L>, rhs: Index<R>, code_fn: BinCode, values: Vec<O>) -> Self {
         Self {
             lhs,
@@ -78,15 +94,29 @@ impl<L: Val, R: Val, O: Val> BinNodeMaybe<L, R, O> {
             values,
         }
     }
+}
 
-    pub fn into_node(self, store: &mut Store) -> BinNode<L, R, O> {
-        let values = store.insert(&self.values);
-        BinNode {
+impl<L, R, O> MaybeNode<O> for BinNodeMaybe<L, R, O>
+where
+    L: Val,
+    R: Val,
+    O: Val,
+    Store: ProgramStore<L>,
+    Store: ProgramStore<R>,
+    Store: ProgramStore<O>,
+{
+    fn values<'a>(&'a self) -> &'a [O] {
+        self.values.as_slice()
+    }
+
+    fn to_node(self: Box<Self>, node_index: Index<O>) -> (Box<dyn Node<O>>, Vec<O>) {
+        let node = BinNode {
             lhs: self.lhs,
             rhs: self.rhs,
             code_fn: self.code_fn,
-            values,
-        }
+            values: node_index,
+        };
+        (Box::new(node), self.values)
     }
 }
 
@@ -97,11 +127,19 @@ pub struct BinNode<L: Val, R: Val, O: Val> {
     values: Index<O>,
 }
 
-impl<L: Val, R: Val, O: Val> Node<O> for BinNode<L, R, O> {
+impl<'s, L, R, O> Node<O> for BinNode<L, R, O>
+where
+    L: Val,
+    R: Val,
+    O: Val,
+    Store: ProgramStore<L>,
+    Store: ProgramStore<R>,
+    Store: ProgramStore<O>,
+{
     fn code(&self, store: &Store) -> String {
         let lhs = store.program(self.lhs);
         let rhs = store.program(self.rhs);
-        self.code_fn(lhs.code(store), rhs.code(store))
+        (self.code_fn)(lhs.code(store).as_ref(), rhs.code(store).as_ref())
     }
 
     fn values<'a>(&self, store: &'a Store) -> &'a [O] {
@@ -113,14 +151,20 @@ fn true_check<L, R>(lhs: L, rhs: R) -> bool {
     true
 }
 
-fn add_op(lhs: Int, rhs: Int) -> Int {
-    return lhs + rhs;
+fn add_op(lhs: &[Int], rhs: &[Int]) -> Vec<Int> {
+    debug_assert!(
+        lhs.len() == rhs.len(),
+        "Arrays of different lengths given to add_op: {:?} vs. {:?}",
+        lhs,
+        rhs
+    );
+    lhs.iter().zip(rhs.iter()).map(|(l, r)| l + r).collect()
 }
 
 fn add_code(lhs: &str, rhs: &str) -> String {
     format!("{lhs} + {rhs}")
 }
 
-fn add_node<'s>(store: &Store) -> Box<BinEnum<'s, Int, Int, Int>> {
-    BinEnum::new(add_op, &true_check, &add_code, store)
-}
+// fn add_node<'s>(store: &Store) -> Box<BinEnum<'s, Int, Int, Int>> {
+//     Box::new(BinEnum::new(&add_op, &true_check, &add_code, store))
+// }

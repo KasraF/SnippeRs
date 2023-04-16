@@ -1,11 +1,13 @@
 use crate::nodes::*;
 use crate::utils::*;
 
+#[derive(Clone, Copy)]
 pub enum NodeEnumWrapper {
     Int(NodeEnumBuilder<Int>),
     IntArray(NodeEnumBuilder<IntArray>),
 }
 
+#[derive(Clone)]
 pub struct Vocab {
     node_enums: Vec<NodeEnumWrapper>,
 }
@@ -15,23 +17,26 @@ impl Vocab {
         Self { node_enums }
     }
 
-    pub fn iter<'a>(&'a self) -> VocabIter<'a> {
+    pub fn iter<'a>(&'a self) -> VocabIter {
         VocabIter::new(self)
     }
 }
 
-pub struct VocabIter<'a> {
+pub struct VocabIter {
     idx: usize,
-    vocab: &'a Vocab,
+    vocab: Vocab,
 }
 
-impl<'a> VocabIter<'a> {
-    fn new(vocab: &'a Vocab) -> Self {
-        Self { idx: 0, vocab }
+impl VocabIter {
+    fn new(vocab: &Vocab) -> Self {
+        Self {
+            idx: 0,
+            vocab: vocab.clone(),
+        }
     }
 }
 
-impl<'a> Iterator for VocabIter<'a> {
+impl Iterator for VocabIter {
     type Item = NodeEnumWrapper;
 
     fn next(&mut self) -> Option<Self::Item> {

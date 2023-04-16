@@ -1,29 +1,19 @@
 use crate::ctx::Contexts;
-use crate::nodes::NodeEnum;
 use crate::store::Store;
-use crate::utils::*;
-use crate::vocab::{Vocab, VocabIter};
+use crate::vocab::{NodeEnumWrapper, Vocab, VocabIter};
 
-enum NodeEnumWrapper {
-    Int(Box<dyn NodeEnum<Int>>),
-    IntArray(Box<dyn NodeEnum<IntArray>>),
-}
-
-pub struct Enumerator<'a, 's>
-where
-    's: 'a,
-{
+pub struct Enumerator {
     ctx: Contexts,
-    store: Store<'s>,
+    store: Store,
     node_enum: NodeEnumWrapper,
-    vocab: VocabIter<'a>,
+    vocab: VocabIter,
 }
 
-impl<'a, 's: 'a> Enumerator<'a, 's> {
-    pub fn new(ctx: Contexts, vocab: &'a Vocab) -> Self {
+impl Enumerator {
+    pub fn new(ctx: Contexts, vocab: &Vocab) -> Self {
         let store = Store::new(ctx.len());
-        let vocab_iter = vocab.iter();
-        let node_enum = vocab_iter.next();
+        let mut vocab_iter = vocab.iter();
+        let node_enum = vocab_iter.next().expect("VocabIter was completely empty.");
         Self {
             ctx,
             store,

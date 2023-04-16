@@ -20,7 +20,7 @@ pub enum Value {
     BoolArray(BoolArray),
 }
 
-pub trait Val: Eq + 'static {}
+pub trait Val: Eq + std::hash::Hash + Clone + 'static {}
 impl Val for Int {}
 impl Val for Str {}
 impl Val for Bool {}
@@ -28,7 +28,7 @@ impl Val for IntArray {}
 impl Val for StrArray {}
 impl Val for BoolArray {}
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Index<T: Val> {
     pub idx: usize,
     _phantom_data: PhantomData<T>,
@@ -48,3 +48,5 @@ impl<T: Val> Display for Index<T> {
         write!(f, "Index {{{}}}", self.idx)
     }
 }
+
+impl<T: Val> Copy for Index<T> {}

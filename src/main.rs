@@ -1,3 +1,5 @@
+#![feature(trait_alias)]
+
 use clap::Parser;
 use synth::Synth;
 use task::Task;

@@ -1,34 +1,96 @@
-use crate::nodes::Node;
+use crate::nodes::{MaybeNode, Node};
 use crate::utils::*;
 use std::collections::HashSet;
 
-pub trait ProgramStore<'a, T: Val> {
-    fn unique(&self, xs: &[T]) -> bool;
-    fn oe_insert(&mut self, xs: &[T]) -> Option<Index<T>> {
-        if self.unique(xs) {
-            Some(self.insert(xs))
-        } else {
-            None
-        }
-    }
-    fn insert(&mut self, xs: &[T]) -> Index<T>;
+/// A private trait, used to simplify defining `Store` as an instance of
+/// variour ProgramStores.
+pub trait PrivateStore<T: Val> {
+    fn examples(&self) -> usize;
+    fn nodes(&self) -> &[Box<dyn Node<T>>];
+    fn nodes_mut(&mut self) -> &mut Vec<Box<dyn Node<T>>>;
+    fn values(&self) -> &[T];
+    fn values_mut(&mut self) -> &mut Vec<T>;
+    fn oe(&self) -> &HashSet<Vec<T>>;
+    fn oe_mut(&mut self) -> &mut HashSet<Vec<T>>;
+}
+
+pub trait ProgramStore<T: Val> {
+    fn insert(&mut self, node: Box<dyn MaybeNode<T>>) -> Option<Index<T>>;
     fn program<'s>(&'s self, idx: Index<T>) -> &'s dyn Node<T>;
     fn values<'s>(&'s self, idx: Index<T>) -> &'s [T];
     fn has(&self, idx: Index<T>) -> bool;
 }
 
-pub struct Store<'a> {
-    /// The number of examples we're working with.
-    ex: usize,
-    ints: Vec<Box<dyn Node<Int>>>,
-    int_vals: Vec<Int>,
-    int_oe: HashSet<&'a [Int]>,
-    int_arrs: Vec<Box<dyn Node<IntArray>>>,
-    int_arr_vals: Vec<IntArray>,
-    int_arrs_oe: HashSet<&'a [IntArray]>,
+impl<T: Val> ProgramStore<T> for dyn PrivateStore<T> {
+    fn insert(&mut self, node: Box<dyn MaybeNode<T>>) -> Option<Index<T>> {
+        // Check if it's unique
+        let examples = self.examples();
+        let values = node.values();
+        debug_assert!(
+            values.len() == examples,
+            "Given MaybeNode has {} values, but examples is {}",
+            values.len(),
+            examples
+        );
+        if self.oe().contains(values) {
+            return None;
+        }
+
+        // The values for this node are unique. So let's go!!!
+        let nodes = self.nodes_mut();
+        let nodes_len = nodes.len();
+        let idx = Index::new(nodes_len);
+        let (node, mut node_values) = node.to_node(idx);
+
+        // Add the node
+        nodes.push(node);
+
+        // Add the values
+        // TODO This .clone() **hurts**. Can we do anything about it?!
+        self.oe_mut().insert(node_values.clone());
+        let values = self.values_mut();
+        debug_assert!(
+            values.len() == idx.idx * examples,
+            "Nodes and values are out of sync: {} != {} (ex = {})",
+            nodes_len,
+            values.len(),
+            examples
+        );
+        values.append(&mut node_values);
+
+        Some(idx)
+    }
+
+    fn program<'s>(&'s self, idx: Index<T>) -> &'s dyn Node<T> {
+        self.nodes()[idx.idx].as_ref()
+    }
+
+    fn values<'s>(&'s self, idx: Index<T>) -> &'s [T] {
+        let examples = self.examples();
+        self.values()[idx.idx * examples..(idx.idx + 1) * examples].as_ref()
+    }
+
+    fn has(&self, idx: Index<T>) -> bool {
+        self.nodes().len() > idx.idx
+    }
 }
 
-impl<'a> Store<'a> {
+pub struct Store {
+    /// The number of examples we're working with.
+    ex: usize,
+
+    // Integers
+    ints: Vec<Box<dyn Node<Int>>>,
+    int_vals: Vec<Int>,
+    int_oe: HashSet<Vec<Int>>,
+
+    // Integer arrays
+    int_arrs: Vec<Box<dyn Node<IntArray>>>,
+    int_arr_vals: Vec<IntArray>,
+    int_arrs_oe: HashSet<Vec<IntArray>>,
+}
+
+impl Store {
     pub fn new(examples: usize) -> Self {
         let capacity = 32;
         Self {
@@ -43,86 +105,32 @@ impl<'a> Store<'a> {
     }
 }
 
-impl<'a> ProgramStore<'a, Int> for Store<'a> {
-    fn unique(&self, xs: &[Int]) -> bool {
-        self.int_oe.contains(xs)
+impl PrivateStore<Int> for Store {
+    fn examples(&self) -> usize {
+        self.ex
     }
 
-    fn insert(&mut self, xs: &[Int]) -> Index<Int> {
-        let start = self.int_vals.len();
-        self.int_vals.extend_from_slice(xs);
-        Index::new(start)
+    fn nodes(&self) -> &[Box<dyn Node<Int>>] {
+        self.ints.as_slice()
     }
 
-    fn program<'s>(&'s self, idx: Index<Int>) -> &'s dyn Node<Int> {
-        debug_assert!(self.ints.len() > idx.idx, "Index does not exist: {}", idx);
-        debug_assert!(
-            idx.idx % self.ex == 0,
-            "Index didn't start at a boundary: {}",
-            idx
-        );
-        self.ints[idx.idx].as_ref()
+    fn nodes_mut(&mut self) -> &mut Vec<Box<dyn Node<Int>>> {
+        &mut self.ints
     }
 
-    fn values<'s>(&'s self, idx: Index<Int>) -> &'s [Int] {
-        debug_assert!(
-            self.int_vals.len() <= idx.idx + self.ex,
-            "Index does not exist: {}",
-            idx
-        );
-        debug_assert!(
-            idx.idx % self.ex == 0,
-            "Index didn't start at a boundary: {}",
-            idx
-        );
-        &self.int_vals[idx.idx..idx.idx + self.ex]
+    fn values(&self) -> &[Int] {
+        &self.int_vals
     }
 
-    fn has(&self, idx: Index<Int>) -> bool {
-        self.int_vals.len() > idx.idx
-    }
-}
-
-impl<'a> ProgramStore<'a, IntArray> for Store<'a> {
-    fn unique(&self, xs: &[IntArray]) -> bool {
-        self.int_arrs_oe.contains(xs)
+    fn values_mut(&mut self) -> &mut Vec<Int> {
+        &mut self.int_vals
     }
 
-    fn insert(&mut self, xs: &[IntArray]) -> Index<IntArray> {
-        let start = self.int_arr_vals.len();
-        self.int_arr_vals.extend_from_slice(xs);
-        Index::new(start)
+    fn oe(&self) -> &HashSet<Vec<Int>> {
+        &self.int_oe
     }
 
-    fn program<'s>(&'s self, idx: Index<IntArray>) -> &'s dyn Node<IntArray> {
-        debug_assert!(
-            self.int_arrs.len() > idx.idx,
-            "Index does not exist: {}",
-            idx
-        );
-        debug_assert!(
-            idx.idx % self.ex == 0,
-            "Index didn't start at a boundary: {}",
-            idx
-        );
-        self.int_arrs[idx.idx].as_ref()
-    }
-
-    fn values<'s>(&'s self, idx: Index<IntArray>) -> &'s [IntArray] {
-        debug_assert!(
-            self.int_vals.len() <= idx.idx + self.ex,
-            "Index does not exist: {}",
-            idx
-        );
-        debug_assert!(
-            idx.idx % self.ex == 0,
-            "Index didn't start at a boundary: {:?}",
-            idx
-        );
-        &self.int_arr_vals[idx.idx..idx.idx + self.ex]
-    }
-
-    fn has(&self, idx: Index<IntArray>) -> bool {
-        self.int_arr_vals.len() > idx.idx
+    fn oe_mut(&mut self) -> &mut HashSet<Vec<Int>> {
+        &mut self.int_oe
     }
 }

@@ -7,27 +7,19 @@ mod binary;
 mod unary;
 
 pub type NodeEnumBuilder<O: Val> = &'static dyn Fn(&Store) -> dyn NodeEnum<O>;
+pub trait NodeEnum<T: Val> = Iterator<Item = Box<dyn MaybeNode<T>>>;
 
-pub trait NodeEnum<O: Val> {
-    fn next(&mut self) -> Box<dyn MaybeNode<O>>;
-}
+pub trait MaybeNode<T: Val> {
+    fn values<'a>(&'a self) -> &'a [T];
 
-impl<O: Val> Iterator for dyn NodeEnum<O> {
-    type Item = Box<dyn MaybeNode<O>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next())
-    }
-}
-
-trait MaybeNode<O: Val> {
-    fn values<'a>(&self, store: &'a Store) -> &'a [O];
-    fn to_node(self, store: &mut Store) -> Box<dyn Node<O>>;
-}
-
-pub struct UnaryNode<I: Val, O: Val> {
-    child: Index<I>,
-    values: Index<O>,
+    /// This is a *weird* function. Basically, to convert a MaybeNode to
+    /// a Node, we need to replace the *values* held by the MaybeNode
+    /// with the *index* of those values in the store.
+    /// So this function takes said index, and returns the Node, and the
+    /// values to be placed in the Store.
+    /// NOTE: This assumes that the caller will place the given values
+    ///  at the *given index*.
+    fn to_node(self: Box<Self>, node_index: Index<T>) -> (Box<dyn Node<T>>, Vec<T>);
 }
 
 pub trait Node<T: Val> {
