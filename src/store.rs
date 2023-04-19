@@ -1,18 +1,7 @@
+use crate::ctx::{Contexts, VariableMap};
 use crate::nodes::{MaybeNode, Node};
 use crate::utils::*;
 use std::collections::HashSet;
-
-/// A private trait, used to simplify defining `Store` as an instance of
-/// variour ProgramStores.
-pub trait PrivateStore<T: Val> {
-    fn examples(&self) -> usize;
-    fn nodes(&self) -> &[Box<dyn Node<T>>];
-    fn nodes_mut(&mut self) -> &mut Vec<Box<dyn Node<T>>>;
-    fn values(&self) -> &[T];
-    fn values_mut(&mut self) -> &mut Vec<T>;
-    fn oe(&self) -> &HashSet<Vec<T>>;
-    fn oe_mut(&mut self) -> &mut HashSet<Vec<T>>;
-}
 
 pub trait ProgramStore<T: Val> {
     fn insert(&mut self, node: Box<dyn MaybeNode<T>>) -> Option<Index<T>>;
@@ -21,23 +10,22 @@ pub trait ProgramStore<T: Val> {
     fn has(&self, idx: Index<T>) -> bool;
 }
 
-impl<T: Val> ProgramStore<T> for dyn PrivateStore<T> {
-    fn insert(&mut self, node: Box<dyn MaybeNode<T>>) -> Option<Index<T>> {
+impl ProgramStore<Int> for Store {
+    fn insert(&mut self, node: Box<dyn MaybeNode<Int>>) -> Option<Index<Int>> {
         // Check if it's unique
-        let examples = self.examples();
         let values = node.values();
         debug_assert!(
-            values.len() == examples,
+            values.len() == self.ex,
             "Given MaybeNode has {} values, but examples is {}",
             values.len(),
-            examples
+            self.ex
         );
-        if self.oe().contains(values) {
+        if self.int_oe.contains(values) {
             return None;
         }
 
         // The values for this node are unique. So let's go!!!
-        let nodes = self.nodes_mut();
+        let nodes = &mut self.ints;
         let nodes_len = nodes.len();
         let idx = Index::new(nodes_len);
         let (node, mut node_values) = node.to_node(idx);
@@ -47,37 +35,38 @@ impl<T: Val> ProgramStore<T> for dyn PrivateStore<T> {
 
         // Add the values
         // TODO This .clone() **hurts**. Can we do anything about it?!
-        self.oe_mut().insert(node_values.clone());
-        let values = self.values_mut();
+        self.int_oe.insert(node_values.clone());
+        let values = &mut self.int_vals;
         debug_assert!(
-            values.len() == idx.idx * examples,
+            values.len() == *idx * self.ex,
             "Nodes and values are out of sync: {} != {} (ex = {})",
             nodes_len,
             values.len(),
-            examples
+            self.ex
         );
         values.append(&mut node_values);
 
         Some(idx)
     }
 
-    fn program<'s>(&'s self, idx: Index<T>) -> &'s dyn Node<T> {
-        self.nodes()[idx.idx].as_ref()
+    fn program<'s>(&'s self, idx: Index<Int>) -> &'s dyn Node<Int> {
+        self.ints[*idx].as_ref()
     }
 
-    fn values<'s>(&'s self, idx: Index<T>) -> &'s [T] {
-        let examples = self.examples();
-        self.values()[idx.idx * examples..(idx.idx + 1) * examples].as_ref()
+    fn values<'s>(&'s self, idx: Index<Int>) -> &'s [Int] {
+        self.int_vals[*idx * self.ex..(*idx + 1) * self.ex].as_ref()
     }
 
-    fn has(&self, idx: Index<T>) -> bool {
-        self.nodes().len() > idx.idx
+    fn has(&self, idx: Index<Int>) -> bool {
+        self.ints.len() > *idx
     }
 }
 
 pub struct Store {
     /// The number of examples we're working with.
     ex: usize,
+    pub ctxs: Contexts,
+    pub var_map: VariableMap,
 
     // Integers
     ints: Vec<Box<dyn Node<Int>>>,
@@ -91,46 +80,20 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(examples: usize) -> Self {
+    pub fn new(ctxs: Contexts, var_map: VariableMap) -> Self {
+        let ex = ctxs.len();
         let capacity = 32;
+
         Self {
-            ex: examples,
+            ex,
+            ctxs,
+            var_map,
             ints: Vec::with_capacity(capacity),
-            int_vals: Vec::with_capacity(capacity * examples),
+            int_vals: Vec::with_capacity(capacity * ex),
             int_oe: HashSet::new(),
             int_arrs: Vec::with_capacity(capacity),
-            int_arr_vals: Vec::with_capacity(capacity * examples),
+            int_arr_vals: Vec::with_capacity(capacity * ex),
             int_arrs_oe: HashSet::new(),
         }
-    }
-}
-
-impl PrivateStore<Int> for Store {
-    fn examples(&self) -> usize {
-        self.ex
-    }
-
-    fn nodes(&self) -> &[Box<dyn Node<Int>>] {
-        self.ints.as_slice()
-    }
-
-    fn nodes_mut(&mut self) -> &mut Vec<Box<dyn Node<Int>>> {
-        &mut self.ints
-    }
-
-    fn values(&self) -> &[Int] {
-        &self.int_vals
-    }
-
-    fn values_mut(&mut self) -> &mut Vec<Int> {
-        &mut self.int_vals
-    }
-
-    fn oe(&self) -> &HashSet<Vec<Int>> {
-        &self.int_oe
-    }
-
-    fn oe_mut(&mut self) -> &mut HashSet<Vec<Int>> {
-        &mut self.int_oe
     }
 }

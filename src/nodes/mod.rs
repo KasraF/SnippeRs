@@ -4,9 +4,12 @@ use crate::{
 };
 
 mod binary;
+mod nullary;
 mod unary;
 
-pub type NodeEnumBuilder<O: Val> = &'static dyn Fn(&Store) -> dyn NodeEnum<O>;
+pub use nullary::variable_node_enum;
+
+pub type NodeEnumBuilder<O> = &'static dyn for<'s> Fn(&'s Store) -> Box<dyn NodeEnum<O> + 's>;
 pub trait NodeEnum<T: Val> = Iterator<Item = Box<dyn MaybeNode<T>>>;
 
 pub trait MaybeNode<T: Val> {

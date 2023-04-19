@@ -22,6 +22,19 @@ impl Vocab {
     }
 }
 
+impl Default for Vocab {
+    fn default() -> Self {
+        let mut enums = Vec::with_capacity(16);
+
+        // TODO Is there a way to require using every available type here?
+        enums.push(NodeEnumWrapper::Int(&variable_node_enum));
+
+        // Then all the others
+
+        Vocab::new(enums)
+    }
+}
+
 pub struct VocabIter {
     idx: usize,
     vocab: Vocab,

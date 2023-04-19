@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use smallvec::SmallVec;
-use std::{fmt::Display, marker::PhantomData};
+use std::{fmt::Display, marker::PhantomData, ops::Deref};
 
 pub type Int = i32;
 pub type Str = String;
@@ -8,6 +8,38 @@ pub type Bool = bool;
 pub type IntArray = SmallVec<[Int; 8]>;
 pub type StrArray = SmallVec<[Str; 8]>;
 pub type BoolArray = SmallVec<[Bool; 8]>;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Typ {
+    Int,
+    Str,
+    Bool,
+    IntArray,
+    StrArray,
+    BoolArray,
+}
+
+pub enum Typed<T> {
+    Int(T),
+    Str(T),
+    Bool(T),
+    IntArray(T),
+    StrArray(T),
+    BoolArray(T),
+}
+
+impl<T> Typed<T> {
+    pub fn inner(&self) -> &T {
+        match self {
+            Typed::Int(v) => v,
+            Typed::Str(v) => v,
+            Typed::Bool(v) => v,
+            Typed::IntArray(v) => v,
+            Typed::StrArray(v) => v,
+            Typed::BoolArray(v) => v,
+        }
+    }
+}
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 #[serde(untagged)]
@@ -30,16 +62,24 @@ impl Val for BoolArray {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Index<T: Val> {
-    pub idx: usize,
+    idx: usize,
     _phantom_data: PhantomData<T>,
 }
 
 impl<T: Val> Index<T> {
-    pub fn new(start: usize) -> Self {
+    pub fn new(idx: usize) -> Self {
         Self {
-            idx: start,
+            idx,
             _phantom_data: PhantomData,
         }
+    }
+}
+
+impl<T: Val> Deref for Index<T> {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.idx
     }
 }
 

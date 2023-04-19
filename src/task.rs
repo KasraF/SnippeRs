@@ -1,17 +1,10 @@
 use serde::Deserialize;
 use std::{collections::HashMap, fs::File, io::BufReader};
 
-use crate::utils::*;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Typ {
-    Int,
-    Str,
-    Bool,
-    IntArray,
-    StrArray,
-    BoolArray,
-}
+use crate::{
+    ctx::{Context, Contexts, Ctx, Var, VarMap, VariableMap},
+    utils::*,
+};
 
 impl<'de> Deserialize<'de> for Typ {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -39,6 +32,29 @@ pub struct Example {
     pub input: HashMap<String, Value>,
     pub state: Option<HashMap<String, Value>>,
     pub output: Option<Value>,
+}
+
+impl Example {
+    fn to_context(&self, map: &mut VariableMap) -> Context {
+        let mut ctx = Context::default();
+        for (var, val) in &self.input {
+            match val {
+                Value::Int(val) => {
+                    let idx: Var<Int> = map.insert(&var);
+                    ctx.set(idx, *val);
+                }
+                Value::Str(val) => todo!(),
+                Value::Bool(val) => todo!(),
+                Value::IntArray(val) => {
+                    let idx: Var<IntArray> = map.insert(&var);
+                    ctx.set(idx, val.clone());
+                }
+                Value::StrArray(val) => todo!(),
+                Value::BoolArray(val) => todo!(),
+            }
+        }
+        ctx
+    }
 }
 
 /// A synthesis "Task", parsed from JSON.
@@ -75,7 +91,15 @@ impl Task {
         Ok(rs)
     }
 
-    pub fn get_context(&self) -> Context {}
+    pub fn get_contexts(&self) -> (VariableMap, Contexts) {
+        let mut varmap = VariableMap::default();
+        let ctx = self
+            .examples
+            .iter()
+            .map(|ex| ex.to_context(&mut varmap))
+            .collect();
+        (varmap, ctx)
+    }
 }
 
 #[cfg(test)]
@@ -106,5 +130,57 @@ mod task_tests {
         assert_eq!(rs.src, "blah");
         assert!(rs.vars.contains_key("list"));
         assert_eq!(rs.vars.get("list"), Some(&Typ::IntArray));
+    }
+
+    fn to_ctx() {
+        let task = "{
+            \"source\": \"blah\",
+            \"variables\": {
+                \"list\": \"[Int]\"
+            },
+            \"returnType\": \"Int\",
+            \"examples\": [
+                {
+                    \"input\": {
+                        \"list\": [-99, 88, -32, 3, 10, 999, 9991, 0, 99]
+                    },
+                    \"output\": 9991
+                }
+            ]
+        }";
+        let rs = serde_json::from_str::<Task>(task);
+        assert!(rs.is_ok(), "Failed to parse task: {:?}", rs);
+
+        let rs = rs.unwrap();
+        let (mut varmap, ctxs) = rs.get_contexts();
+        assert_eq!(
+            ctxs.len(),
+            1,
+            "Expected 1 context, but found {}: {:?}",
+            ctxs.len(),
+            ctxs
+        );
+
+        let list: Var<IntArray> = varmap.insert("list");
+        assert_eq!(
+            *list, 0,
+            "'list' variable wasn't inserted at the beginning: {} ({:?})",
+            list, varmap
+        );
+
+        let val: Vec<&IntArray> = ctxs.iter().map(|ctx| ctx.get(list)).collect();
+        assert_eq!(
+            val.len(),
+            1,
+            "Expected 1 context, found {}: {:?}",
+            val.len(),
+            val
+        );
+        assert_eq!(
+            val[0].as_slice(),
+            [-99, 88, -32, 3, 10, 999, 9991, 0, 99],
+            "Incorrect value for list: {:?}",
+            val[0]
+        );
     }
 }
