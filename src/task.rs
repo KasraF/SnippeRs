@@ -36,7 +36,7 @@ pub struct Example {
 
 impl Example {
     fn to_context(&self, map: &mut VariableMap) -> Context {
-        let mut ctx = Context::default();
+        let ctx = Context::default();
         for (var, val) in &self.input {
             match val {
                 Value::Int(val) => {

@@ -1,6 +1,6 @@
 #![feature(trait_alias)]
 // TODO Remove!
-#![allow(dead_code)]
+#![allow(dead_code, unused_variables, unused_imports)]
 
 use clap::Parser;
 use synth::Synth;

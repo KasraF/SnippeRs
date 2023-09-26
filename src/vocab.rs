@@ -4,6 +4,7 @@ use crate::utils::*;
 #[derive(Clone, Copy)]
 pub enum NodeEnumWrapper {
     Int(NodeEnumBuilder<Int>),
+    Str(NodeEnumBuilder<Str>),
     IntArray(NodeEnumBuilder<IntArray>),
 }
 
@@ -27,7 +28,8 @@ impl Default for Vocab {
         let mut enums = Vec::with_capacity(16);
 
         // TODO Is there a way to require using every available type here?
-        enums.push(NodeEnumWrapper::Int(&variable_node_enum));
+        enums.push(NodeEnumWrapper::Int(&variable_node_enum::<Int>));
+        enums.push(NodeEnumWrapper::Str(&variable_node_enum::<Str>));
 
         // Then all the others
 

@@ -52,6 +52,7 @@ impl<T: Val> Iterator for VarIter<T> {
 #[derive(Default, Debug)]
 pub struct VariableMap {
     ints: SmallVec<[String; 8]>,
+    strs: SmallVec<[String; 8]>,
     int_arrs: SmallVec<[String; 8]>,
 }
 
@@ -84,6 +85,38 @@ impl VarMap<Int> for VariableMap {
 
     fn names(&self) -> &[String] {
         &self.ints
+    }
+}
+
+impl VarMap<Str> for VariableMap {
+    fn insert(&mut self, var: &str) -> Var<Str> {
+        // TODO Do we need to be better about this?
+        for (i, v) in self.strs.iter().enumerate() {
+            if v == var {
+                return Var::new(i);
+            }
+        }
+
+        let idx = Var::new(self.ints.len());
+        self.strs.push(var.to_string());
+        idx
+    }
+
+    fn get(&self, var: Var<Str>) -> &str {
+        &self.strs[*var]
+    }
+
+    fn lookup(&self, var: &str) -> Option<Var<Str>> {
+        for (i, v) in self.strs.iter().enumerate() {
+            if v == var {
+                return Some(Var::new(i));
+            }
+        }
+        None
+    }
+
+    fn names(&self) -> &[String] {
+        &self.strs
     }
 }
 
@@ -164,6 +197,7 @@ pub trait Ctx<T: Val> {
 #[derive(Clone, Default, Debug)]
 pub struct Context {
     ints: SmallVec<[Int; 4]>,
+    strs: SmallVec<[Str; 4]>,
     int_arrs: SmallVec<[IntArray; 4]>,
 }
 
@@ -189,6 +223,31 @@ impl Ctx<Int> for Context {
 
     fn has(&self, idx: Var<Int>) -> bool {
         self.ints.len() < *idx
+    }
+}
+
+impl Ctx<Str> for Context {
+    fn try_get(&self, idx: Var<Str>) -> Option<&Str> {
+        if self.strs.len() < *idx {
+            Some(&self.strs[*idx])
+        } else {
+            None
+        }
+    }
+
+    fn set(&self, idx: Var<Str>, val: Str) -> Self {
+        debug_assert!(
+            self.has(idx),
+            "Tried to set variable {} for context, but it doesn't exist.",
+            idx
+        );
+        let mut rs = self.clone();
+        rs.strs[*idx] = val;
+        rs
+    }
+
+    fn has(&self, idx: Var<Str>) -> bool {
+        self.strs.len() < *idx
     }
 }
 

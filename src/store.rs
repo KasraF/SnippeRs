@@ -1,6 +1,7 @@
 use crate::ctx::{Contexts, VariableMap};
 use crate::nodes::{MaybeNode, Node};
 use crate::utils::*;
+use snippers_macros::derive_store;
 use std::collections::HashSet;
 
 pub trait ProgramStore<T: Val> {
@@ -10,58 +11,7 @@ pub trait ProgramStore<T: Val> {
     fn has(&self, idx: Index<T>) -> bool;
 }
 
-impl ProgramStore<Int> for Store {
-    fn insert(&mut self, node: Box<dyn MaybeNode<Int>>) -> Option<Index<Int>> {
-        // Check if it's unique
-        let values = node.values();
-        debug_assert!(
-            values.len() == self.ex,
-            "Given MaybeNode has {} values, but examples is {}",
-            values.len(),
-            self.ex
-        );
-        if self.int_oe.contains(values) {
-            return None;
-        }
-
-        // The values for this node are unique. So let's go!!!
-        let nodes = &mut self.ints;
-        let nodes_len = nodes.len();
-        let idx = Index::new(nodes_len);
-        let (node, mut node_values) = node.to_node(idx);
-
-        // Add the node
-        nodes.push(node);
-
-        // Add the values
-        // TODO This .clone() **hurts**. Can we do anything about it?!
-        self.int_oe.insert(node_values.clone());
-        let values = &mut self.int_vals;
-        debug_assert!(
-            values.len() == *idx * self.ex,
-            "Nodes and values are out of sync: {} != {} (ex = {})",
-            nodes_len,
-            values.len(),
-            self.ex
-        );
-        values.append(&mut node_values);
-
-        Some(idx)
-    }
-
-    fn program<'s>(&'s self, idx: Index<Int>) -> &'s dyn Node<Int> {
-        self.ints[*idx].as_ref()
-    }
-
-    fn values<'s>(&'s self, idx: Index<Int>) -> &'s [Int] {
-        self.int_vals[*idx * self.ex..(*idx + 1) * self.ex].as_ref()
-    }
-
-    fn has(&self, idx: Index<Int>) -> bool {
-        self.ints.len() > *idx
-    }
-}
-
+#[derive_store(Int, Str, IntArray)]
 pub struct Store {
     /// The number of examples we're working with.
     ex: usize,
@@ -73,10 +23,15 @@ pub struct Store {
     int_vals: Vec<Int>,
     int_oe: HashSet<Vec<Int>>,
 
+    // Strings
+    strs: Vec<Box<dyn Node<Str>>>,
+    str_vals: Vec<Str>,
+    str_oe: HashSet<Vec<Str>>,
+
     // Integer arrays
-    int_arrs: Vec<Box<dyn Node<IntArray>>>,
-    int_arr_vals: Vec<IntArray>,
-    int_arrs_oe: HashSet<Vec<IntArray>>,
+    int_arrays: Vec<Box<dyn Node<IntArray>>>,
+    int_array_vals: Vec<IntArray>,
+    int_array_oe: HashSet<Vec<IntArray>>,
 }
 
 impl Store {
@@ -91,9 +46,12 @@ impl Store {
             ints: Vec::with_capacity(capacity),
             int_vals: Vec::with_capacity(capacity * ex),
             int_oe: HashSet::new(),
-            int_arrs: Vec::with_capacity(capacity),
-            int_arr_vals: Vec::with_capacity(capacity * ex),
-            int_arrs_oe: HashSet::new(),
+            strs: Vec::with_capacity(capacity),
+            str_vals: Vec::with_capacity(capacity * ex),
+            str_oe: HashSet::new(),
+            int_arrays: Vec::with_capacity(capacity),
+            int_array_vals: Vec::with_capacity(capacity * ex),
+            int_array_oe: HashSet::new(),
         }
     }
 }
