@@ -1,7 +1,6 @@
 use crate::cond::*;
 use crate::store::*;
 use crate::utils::*;
-use crate::SynthesisTask;
 
 use super::Program;
 
@@ -12,26 +11,16 @@ pub struct Variable<T: Value> {
 }
 
 impl Variable<Str> {
-    pub fn new(name: String, values: VIdx<Str>, task: &SynthesisTask) -> Self {
-        let cond = Condition::empty(task.var_map.len()).mutate(
-            *task.var_map.get(&name).expect(&format!(
-                "Variable initalized, but name doesn't exist in var map: {name}"
-            )),
-            Some(AnyVal::Str(values)),
-        );
-        Self { name, values, cond }
+    pub fn new(name: String, values: VIdx<Str>, var_idx: usize, variables: usize) -> Box<Self> {
+        let cond = Condition::empty(variables).mutate(var_idx, Some(AnyVal::Str(values)));
+        Box::new(Self { name, values, cond })
     }
 }
 
 impl Variable<Int> {
-    pub fn new(name: String, values: VIdx<Int>, task: &SynthesisTask) -> Self {
-        let cond = Condition::empty(task.var_map.len()).mutate(
-            *task.var_map.get(&name).expect(&format!(
-                "Variable initalized, but name doesn't exist in var map: {name}"
-            )),
-            Some(AnyVal::Int(values)),
-        );
-        Self { name, values, cond }
+    pub fn new(name: String, values: VIdx<Int>, var_idx: usize, variables: usize) -> Box<Self> {
+        let cond = Condition::empty(variables).mutate(var_idx, Some(AnyVal::Int(values)));
+        Box::new(Self { name, values, cond })
     }
 }
 
@@ -49,5 +38,9 @@ where
 
     fn conditions(&self) -> (&PreCondition, &PostCondition) {
         (&self.cond, &self.cond)
+    }
+
+    fn level(&self) -> super::Level {
+        0.into()
     }
 }

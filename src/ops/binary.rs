@@ -1,3 +1,4 @@
+use super::Level;
 use super::Program;
 use crate::cond::*;
 use crate::store::*;
@@ -15,6 +16,7 @@ where
     rhs: PIdx<R>,
     code: BinCode,
     values: VIdx<O>,
+    level: Level,
 }
 
 impl<L, R, O> BinProgram<L, R, O>
@@ -33,6 +35,7 @@ where
         code: BinCode,
         pre: PreCondition,
         post: PostCondition,
+        level: Level,
     ) -> Box<dyn Program<O>> {
         Box::new(Self {
             lhs,
@@ -41,6 +44,7 @@ where
             values,
             pre,
             post,
+            level,
         })
     }
 }
@@ -66,6 +70,11 @@ where
     fn conditions(&self) -> (&PreCondition, &PostCondition) {
         (&self.pre, &self.post)
     }
+
+    #[inline]
+    fn level(&self) -> Level {
+        self.level
+    }
 }
 
 pub type BinProof<L, R> = &'static dyn Fn(&[L], &[R]) -> bool;
@@ -77,6 +86,7 @@ pub type BinEval<L, R, O> = &'static dyn Fn(
 ) -> (Vec<O>, PreCondition, PostCondition);
 pub type BinCode = &'static dyn Fn(&str, &str) -> String;
 
+#[derive(Clone)]
 pub struct BinBuilder<L, R, O>
 where
     L: Value,

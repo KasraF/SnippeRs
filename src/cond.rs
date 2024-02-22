@@ -5,6 +5,7 @@ use crate::utils::*;
 pub type PreCondition = Condition;
 pub type PostCondition = Condition;
 
+#[derive(Clone)]
 pub struct Condition {
     inner: SmallVec<[Option<AnyVal>; 4]>, // Up to 5 variables on the stack!
 }

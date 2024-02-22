@@ -1,24 +1,19 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::borrow::Borrow;
 
 mod cond;
 mod ops;
 mod store;
+mod synth;
+mod task;
 mod utils;
 
-use cond::*;
-use ops::*;
-use store::*;
-use utils::*;
-
-struct SynthesisTask {
-    /// Map each variable to a vector index,
-    /// so we can use vecs instead of HashMaps
-    /// to keep state.
-    var_map: HashMap<String, usize>,
-    examples: usize,
-}
+pub(crate) use cond::*;
+pub(crate) use ops::*;
+use synth::Vocab;
+pub(crate) use task::SynthesisTask;
+pub(crate) use utils::*;
 
 fn sum_proof(_: &[Int], _: &[Int]) -> bool {
     true
@@ -39,37 +34,24 @@ fn sum_code(lhs: &str, rhs: &str) -> String {
 }
 
 fn main() {
-    let mut store = Bank::new(1);
-    let task = SynthesisTask {
-        var_map: [("x".to_string(), 0), ("y".to_string(), 1)].into(),
-        examples: 1,
-    };
+    let task = SynthesisTask::new(
+        [
+            ("x".to_string(), Anies::Int(vec![0])),
+            ("y".to_string(), Anies::Int(vec![1])),
+        ]
+        .into(),
+        1,
+    );
+    let vocab: Vocab = vec![BinBuilder::new(&sum_proof, &sum_eval, &sum_code).into()];
+    let mut synth = synth::Synthesizer::new(vocab, task);
 
-    let one_val = store.put_values(&[1]);
-    let x: PIdx<Int> = store.put_program(Box::new(Variable::<Int>::new(
-        "x".to_string(),
-        one_val,
-        &task,
-    )));
-    let two_val = store.put_values(&[2]);
-    let y = store.put_program(Box::new(Variable::<Int>::new(
-        "y".to_string(),
-        two_val,
-        &task,
-    )));
-
-    let sum = BinBuilder::new(&sum_proof, &sum_eval, &sum_code);
-    match sum.apply(x, y, &store) {
-        Some((vals, pre, post)) => {
-            assert_eq!(&vals, &[3]);
-            let three_val = store.put_values(&vals);
-            let three = BinProgram::new(x, y, three_val, sum.code(), pre, post);
-            let three = store.put_program(three);
-            assert_eq!(store[three].values(&store), &[3]);
-            let code = &store[three].code(&store);
-            assert_eq!(code, "x + y");
-            println!("Synthesized {code}");
-        }
-        None => unreachable!(),
+    loop {
+        let prog = synth.next();
+        let store = synth.store();
+        let code = match prog.borrow() {
+            AnyProg::Int(p) => store[*p].code(store),
+            AnyProg::Str(p) => store[*p].code(store),
+        };
+        println!("{code}");
     }
 }

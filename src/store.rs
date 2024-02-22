@@ -8,6 +8,7 @@ pub trait Store<T: Value> {
     fn put_values(&mut self, values: &[T]) -> VIdx<T>;
     fn get_program(&self, idx: PIdx<T>) -> &Box<dyn Program<T>>;
     fn put_program(&mut self, program: Box<dyn Program<T>>) -> PIdx<T>;
+    fn has_program(&self, idx: PIdx<T>) -> bool;
 }
 
 impl<T> Index<VIdx<T>> for Bank
@@ -74,6 +75,10 @@ impl Store<Int> for Bank {
         self.ints.push(program);
         PIdx::from(self.ints.len() - 1)
     }
+
+    fn has_program(&self, idx: PIdx<Int>) -> bool {
+        self.ints.len() > idx.into()
+    }
 }
 
 impl Store<Str> for Bank {
@@ -94,5 +99,9 @@ impl Store<Str> for Bank {
     fn put_program(&mut self, program: Box<dyn Program<Str>>) -> PIdx<Str> {
         self.strs.push(program);
         PIdx::from(self.strs.len() - 1)
+    }
+
+    fn has_program(&self, idx: PIdx<Str>) -> bool {
+        self.strs.len() > idx.into()
     }
 }
