@@ -8,12 +8,28 @@ mod str;
 
 pub type Vocab = Vec<Builder>;
 
+pub enum ConstVal {
+    Int(&'static str, Int),
+    Str(&'static str, Str),
+}
+
+pub fn constants() -> Vec<ConstVal> {
+    vec![
+        ConstVal::Int("0", 0),
+        ConstVal::Int("1", 1),
+        ConstVal::Str("\"\"", "".to_string()),
+        ConstVal::Str("\" \"", " ".to_string()),
+    ]
+}
+
 pub fn vocab() -> Vocab {
     vec![
         UniBuilder::new(&str::len_eval, &str::len_code).into(),
+        BinBuilder::new(&str::deref_eval, &str::deref_code).into(),
         BinBuilder::new(&int::sum_eval, &int::sum_code).into(),
         BinBuilder::new(&int::sub_eval, &int::sub_code).into(),
         BinBuilder::new(&int::pow_eval, &int::pow_code).into(),
+        UniBuilder::new(&int::minus_eval, &int::minus_code).into(),
     ]
 }
 
@@ -38,9 +54,21 @@ impl From<UniBuilder<Str, Int>> for Builder {
     }
 }
 
+impl From<UniBuilder<Int, Int>> for Builder {
+    fn from(value: UniBuilder<Int, Int>) -> Self {
+        Builder::UnaryIntInt(value)
+    }
+}
+
 impl From<BinBuilder<Int, Int, Int>> for Builder {
     fn from(value: BinBuilder<Int, Int, Int>) -> Self {
         Builder::BinaryIntIntInt(value)
+    }
+}
+
+impl From<BinBuilder<Str, Int, Str>> for Builder {
+    fn from(value: BinBuilder<Str, Int, Str>) -> Self {
+        Builder::BinaryStrIntStr(value)
     }
 }
 

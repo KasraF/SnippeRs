@@ -4,6 +4,8 @@ use crate::ops::*;
 use crate::store::*;
 use crate::task::SynthesisTask;
 use crate::utils::*;
+use crate::vocab;
+use crate::vocab::ConstVal;
 use crate::vocab::Vocab;
 
 pub struct Synthesizer {
@@ -34,6 +36,24 @@ impl Synthesizer {
                 Anies::Str(values) => {
                     let idx = store.put_values(values.clone()).unwrap(); // FIXME
                     store.put_program(Variable::<Str>::new(name.clone(), idx, *var_idx, variables));
+                }
+            }
+        }
+
+        // 4. Add the constants
+        for con in vocab::constants() {
+            match con {
+                ConstVal::Int(code, val) => {
+                    let values = vec![val; task.examples()];
+                    if let Some(idx) = store.put_values(values) {
+                        store.put_program(Constant::<Int>::new(code.to_string(), idx, variables));
+                    }
+                }
+                ConstVal::Str(code, val) => {
+                    let values = vec![val; task.examples()];
+                    if let Some(idx) = store.put_values(values) {
+                        store.put_program(Constant::<Str>::new(code.to_string(), idx, variables));
+                    }
                 }
             }
         }

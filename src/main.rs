@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![feature(try_trait_v2)]
 #![feature(iterator_try_collect)]
+#![feature(ascii_char)]
 
 use std::borrow::Borrow;
 

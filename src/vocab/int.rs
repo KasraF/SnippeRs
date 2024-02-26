@@ -61,3 +61,16 @@ pub(crate) fn pow_eval(
 pub(crate) fn pow_code(lhs: &str, rhs: &str) -> String {
     format!("Math.pow({lhs}, {rhs})")
 }
+
+pub(crate) fn minus_eval(
+    arg: &[Int],
+    pre: PreCondition,
+    post: PostCondition,
+) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
+    let rs = arg.iter().map(|x| x.checked_neg()).try_collect()?;
+    Some((rs, pre, post))
+}
+
+pub(crate) fn minus_code(arg: &str) -> String {
+    format!("-{arg}")
+}
