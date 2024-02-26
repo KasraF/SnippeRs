@@ -18,9 +18,9 @@ pub enum Builder {
     BinaryStrStrStr(BinBuilder<Str, Str, Str>),
 }
 
-impl From<UniBuilder<Int, Int>> for Builder {
-    fn from(value: UniBuilder<Int, Int>) -> Self {
-        Builder::UnaryIntInt(value)
+impl From<UniBuilder<Str, Int>> for Builder {
+    fn from(value: UniBuilder<Str, Int>) -> Self {
+        Builder::UnaryStrInt(value)
     }
 }
 
@@ -31,75 +31,88 @@ impl From<BinBuilder<Int, Int, Int>> for Builder {
 }
 
 impl Builder {
-    pub fn enumerator(&self, level: Level) -> Box<dyn Enumerator> {
+    pub fn enumerator(&self, level: Level, store: &Bank) -> Box<dyn Enumerator> {
+        let max_idx = store.curr_max();
         match &self {
             Builder::UnaryIntInt(builder) => Box::new(UniEnumerator {
                 builder: builder.clone(),
                 arg_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::UnaryIntStr(builder) => Box::new(UniEnumerator {
                 builder: builder.clone(),
                 arg_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::UnaryStrInt(builder) => Box::new(UniEnumerator {
                 builder: builder.clone(),
                 arg_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::UnaryStrStr(builder) => Box::new(UniEnumerator {
                 builder: builder.clone(),
                 arg_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryIntIntInt(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryIntIntStr(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryIntStrInt(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryIntStrStr(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryStrIntInt(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryStrIntStr(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryStrStrInt(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
             Builder::BinaryStrStrStr(builder) => Box::new(BinEnumerator {
                 builder: builder.clone(),
                 lhs_idx: 0.into(),
                 rhs_idx: 0.into(),
                 level,
+                max_idx,
             }),
         }
     }
@@ -118,7 +131,7 @@ pub struct Synthesizer {
 
 impl Synthesizer {
     pub fn new(vocab: Vocab, task: SynthesisTask) -> Self {
-        let curr_level = 0.into();
+        let curr_level = 1.into();
         let curr_vocab = 0;
 
         // Building the store takes a few steps
@@ -129,17 +142,17 @@ impl Synthesizer {
         for (name, values, var_idx) in task.variables() {
             match values {
                 Anies::Int(values) => {
-                    let idx = store.put_values(values.as_slice());
+                    let idx = store.put_values(values.clone()).unwrap(); // FIXME
                     store.put_program(Variable::<Int>::new(name.clone(), idx, *var_idx, variables));
                 }
                 Anies::Str(values) => {
-                    let idx = store.put_values(values.as_slice());
+                    let idx = store.put_values(values.clone()).unwrap(); // FIXME
                     store.put_program(Variable::<Str>::new(name.clone(), idx, *var_idx, variables));
                 }
             }
         }
 
-        let curr_enum = vocab[curr_vocab].enumerator(curr_level);
+        let curr_enum = vocab[curr_vocab].enumerator(curr_level, &store);
 
         Self {
             vocab,
@@ -166,10 +179,11 @@ impl Synthesizer {
             if self.vocab.len() <= self.curr_vocab {
                 // We're out of vocabs. Go to next level and reset.
                 self.curr_level.inc();
+                println!("Increased level to {:?}", self.curr_level);
                 self.curr_vocab = 0;
             }
 
-            self.curr_enum = self.vocab[self.curr_vocab].enumerator(self.curr_level);
+            self.curr_enum = self.vocab[self.curr_vocab].enumerator(self.curr_level, &self.store);
             self.next()
         }
     }
@@ -189,6 +203,7 @@ where
     builder: UniBuilder<I, O>,
     arg_idx: PIdx<I>,
     level: Level,
+    max_idx: MaxPIdx,
 }
 
 impl<I, O> Enumerator for UniEnumerator<I, O>
@@ -198,18 +213,21 @@ where
     Bank: Store<I>,
     Bank: Store<O>,
     PIdx<O>: Into<AnyProg>,
+    MaxPIdx: MaxIdx<I>,
 {
     fn next(&mut self, store: &mut Bank) -> Option<AnyProg> {
-        if !store.has_program(self.arg_idx) {
+        if !self.max_idx.check(self.arg_idx) {
             return None;
         }
+
+        debug_assert!(store.has_program(self.arg_idx));
 
         let curr_idx = {
             let mut prog = &store[self.arg_idx];
             self.arg_idx += 1;
             let prev_level = self.level.prev();
 
-            while prog.level() != prev_level {
+            while prog.level() != prev_level && self.max_idx.check(self.arg_idx) {
                 prog = &store[self.arg_idx];
                 self.arg_idx += 1;
             }
@@ -220,7 +238,7 @@ where
         match self.builder.apply(curr_idx, store) {
             Some((values, pre, post)) => {
                 // See if we can add this
-                let val_idx = store.put_values(values.as_slice());
+                let val_idx = store.put_values(values)?;
                 let program = UniProgram::new(
                     curr_idx,
                     val_idx,
@@ -250,6 +268,7 @@ where
     lhs_idx: PIdx<L>,
     rhs_idx: PIdx<R>,
     level: Level,
+    max_idx: MaxPIdx,
 }
 
 impl<L, R, O> Enumerator for BinEnumerator<L, R, O>
@@ -261,24 +280,29 @@ where
     Bank: Store<R>,
     Bank: Store<O>,
     PIdx<O>: Into<AnyProg>,
+    MaxPIdx: MaxIdx<L>,
+    MaxPIdx: MaxIdx<R>,
 {
     fn next(&mut self, store: &mut Bank) -> Option<AnyProg> {
-        if !store.has_program(self.rhs_idx) {
-            if !store.has_program(self.lhs_idx) {
+        if !self.max_idx.check(self.rhs_idx) {
+            if !self.max_idx.check(self.lhs_idx + 1) {
                 // We're out of programs
                 return None;
             }
 
             // Move to the next lhs child.
-            self.lhs_idx += 1;
+            self.lhs_idx += 1; // FIXME off by one
             self.rhs_idx = 0.into();
         }
+
+        debug_assert!(store.has_program(self.lhs_idx));
+        debug_assert!(store.has_program(self.rhs_idx));
 
         let lhs = &store[self.lhs_idx];
         let rhs = &store[self.rhs_idx];
         self.rhs_idx += 1;
 
-        if lhs.level().bin_next(rhs.level()) == self.level {
+        if lhs.level().bin_next(rhs.level()) != self.level {
             return self.next(store);
         }
 
@@ -287,7 +311,7 @@ where
 
         match self.builder.apply(self.lhs_idx, self.rhs_idx - 1, store) {
             Some((values, pre, post)) => {
-                let values_idx = store.put_values(values.as_slice());
+                let values_idx = store.put_values(values)?;
                 let program = BinProgram::new(
                     self.lhs_idx,
                     self.rhs_idx - 1,

@@ -47,7 +47,7 @@ impl<T: Value> From<VIdx<T>> for usize {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PIdx<T: Value> {
     i: usize,
     _phantom_data: PhantomData<T>,
@@ -85,6 +85,15 @@ impl<T: Value> std::ops::AddAssign<usize> for PIdx<T> {
     #[inline]
     fn add_assign(&mut self, rhs: usize) {
         self.i += rhs;
+    }
+}
+
+impl<T: Value> std::ops::Add<usize> for PIdx<T> {
+    type Output = PIdx<T>;
+
+    #[inline]
+    fn add(self, rhs: usize) -> Self::Output {
+        (self.i + rhs).into()
     }
 }
 

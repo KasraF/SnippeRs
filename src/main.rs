@@ -33,16 +33,40 @@ fn sum_code(lhs: &str, rhs: &str) -> String {
     format!("{lhs} + {rhs}")
 }
 
+fn len_proof(_: &[Str]) -> bool {
+    true
+}
+
+fn len_eval(
+    arg: &[Str],
+    pre: PreCondition,
+    post: PostCondition,
+) -> (Vec<Int>, PreCondition, PostCondition) {
+    let rs = arg.iter().map(|s| s.len() as i32).collect();
+    (rs, pre, post)
+}
+
+fn len_code(arg: &str) -> String {
+    format!("{arg}.length")
+}
+
 fn main() {
     let task = SynthesisTask::new(
         [
-            ("x".to_string(), Anies::Int(vec![0])),
-            ("y".to_string(), Anies::Int(vec![1])),
+            ("x".to_string(), Anies::Int(vec![0, 2])),
+            ("y".to_string(), Anies::Int(vec![1, 1])),
+            (
+                "s".to_string(),
+                Anies::Str(vec!["a".to_string(), "asd".to_string()]),
+            ),
         ]
         .into(),
         1,
     );
-    let vocab: Vocab = vec![BinBuilder::new(&sum_proof, &sum_eval, &sum_code).into()];
+    let vocab: Vocab = vec![
+        BinBuilder::new(&sum_proof, &sum_eval, &sum_code).into(),
+        UniBuilder::new(&len_proof, &len_eval, &len_code).into(),
+    ];
     let mut synth = synth::Synthesizer::new(vocab, task);
 
     loop {

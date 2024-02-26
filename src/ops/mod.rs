@@ -12,7 +12,7 @@ pub(crate) use binary::{BinBuilder, BinProgram};
 pub(crate) use unary::{UniBuilder, UniProgram};
 pub(crate) use variable::Variable;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default, Debug)]
 pub struct Level(u8);
 
 impl From<u8> for Level {

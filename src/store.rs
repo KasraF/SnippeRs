@@ -1,11 +1,33 @@
+use std::collections::HashSet;
 use std::ops::Index;
 
 use crate::ops::Program;
 use crate::utils::*;
 
+pub struct MaxPIdx {
+    int: PIdx<Int>,
+    str: PIdx<Str>,
+}
+
+pub trait MaxIdx<T: Value> {
+    fn check(&self, idx: PIdx<T>) -> bool;
+}
+
+impl MaxIdx<Int> for MaxPIdx {
+    fn check(&self, idx: PIdx<Int>) -> bool {
+        idx < self.int
+    }
+}
+
+impl MaxIdx<Str> for MaxPIdx {
+    fn check(&self, idx: PIdx<Str>) -> bool {
+        idx < self.str
+    }
+}
+
 pub trait Store<T: Value> {
     fn get_values(&self, idx: VIdx<T>) -> &[T];
-    fn put_values(&mut self, values: &[T]) -> VIdx<T>;
+    fn put_values(&mut self, values: Vec<T>) -> Option<VIdx<T>>;
     fn get_program(&self, idx: PIdx<T>) -> &Box<dyn Program<T>>;
     fn put_program(&mut self, program: Box<dyn Program<T>>) -> PIdx<T>;
     fn has_program(&self, idx: PIdx<T>) -> bool;
@@ -39,8 +61,10 @@ pub struct Bank {
     examples: usize,
     int_vals: Vec<Int>,
     ints: Vec<Box<dyn Program<Int>>>,
+    int_oe: HashSet<Vec<Int>>,
     str_vals: Vec<Str>,
     strs: Vec<Box<dyn Program<Str>>>,
+    str_oe: HashSet<Vec<Str>>,
 }
 
 impl Bank {
@@ -50,8 +74,17 @@ impl Bank {
             examples,
             int_vals: Vec::new(),
             ints: Vec::new(),
+            int_oe: HashSet::new(),
             str_vals: Vec::new(),
             strs: Vec::new(),
+            str_oe: HashSet::new(),
+        }
+    }
+
+    pub fn curr_max(&self) -> MaxPIdx {
+        MaxPIdx {
+            int: self.ints.len().into(),
+            str: self.strs.len().into(),
         }
     }
 }
@@ -61,10 +94,16 @@ impl Store<Int> for Bank {
         &self.int_vals[idx.into()..idx + self.examples]
     }
 
-    fn put_values(&mut self, values: &[Int]) -> VIdx<Int> {
+    fn put_values(&mut self, values: Vec<Int>) -> Option<VIdx<Int>> {
+        // First, check OE:
+        if self.int_oe.contains(&values) {
+            return None;
+        }
+
         let start = self.int_vals.len();
-        self.int_vals.extend(values);
-        start.into()
+        self.int_vals.extend(&values);
+        self.int_oe.insert(values);
+        Some(start.into())
     }
 
     fn get_program(&self, idx: PIdx<Int>) -> &Box<dyn Program<Int>> {
@@ -86,10 +125,15 @@ impl Store<Str> for Bank {
         &self.str_vals[idx.into()..idx + self.examples]
     }
 
-    fn put_values(&mut self, values: &[Str]) -> VIdx<Str> {
+    fn put_values(&mut self, values: Vec<Str>) -> Option<VIdx<Str>> {
+        if self.str_oe.contains(&values) {
+            return None;
+        }
+
         let start = self.str_vals.len();
-        self.str_vals.extend_from_slice(values);
-        start.into()
+        self.str_vals.extend_from_slice(&values);
+        self.str_oe.insert(values);
+        Some(start.into())
     }
 
     fn get_program(&self, idx: PIdx<Str>) -> &Box<dyn Program<Str>> {
