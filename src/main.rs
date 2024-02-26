@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![feature(try_trait_v2)]
 
 use std::borrow::Borrow;
 
@@ -15,7 +16,7 @@ use synth::Vocab;
 pub(crate) use task::SynthesisTask;
 pub(crate) use utils::*;
 
-fn sum_proof(_: &[Int], _: &[Int]) -> bool {
+fn bin_true(_: &[Int], _: &[Int]) -> bool {
     true
 }
 
@@ -31,6 +32,20 @@ fn sum_eval(
 
 fn sum_code(lhs: &str, rhs: &str) -> String {
     format!("{lhs} + {rhs}")
+}
+
+fn sub_eval(
+    lhs: &[Int],
+    rhs: &[Int],
+    pre: PreCondition,
+    post: PostCondition,
+) -> (Vec<Int>, PreCondition, PostCondition) {
+    let rs = lhs.iter().zip(rhs).map(|(x, y)| x - y).collect();
+    (rs, pre, post)
+}
+
+fn sub_code(lhs: &str, rhs: &str) -> String {
+    format!("{lhs} - {rhs}")
 }
 
 fn len_proof(_: &[Str]) -> bool {
@@ -57,15 +72,16 @@ fn main() {
             ("y".to_string(), Anies::Int(vec![1, 1])),
             (
                 "s".to_string(),
-                Anies::Str(vec!["a".to_string(), "asd".to_string()]),
+                Anies::Str(vec!["a".to_string(), "asdfmovie".to_string()]),
             ),
         ]
         .into(),
-        1,
+        2,
     );
     let vocab: Vocab = vec![
-        BinBuilder::new(&sum_proof, &sum_eval, &sum_code).into(),
         UniBuilder::new(&len_proof, &len_eval, &len_code).into(),
+        BinBuilder::new(&bin_true, &sum_eval, &sum_code).into(),
+        BinBuilder::new(&bin_true, &sub_eval, &sub_code).into(),
     ];
     let mut synth = synth::Synthesizer::new(vocab, task);
 

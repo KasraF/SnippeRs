@@ -98,6 +98,17 @@ where
     code: BinCode,
 }
 
+impl<L, R, O> std::fmt::Debug for BinBuilder<L, R, O>
+where
+    L: Value,
+    R: Value,
+    O: Value,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BinBuilder<{}>", (*self.code)("lhs", "rhs"))
+    }
+}
+
 impl<L, R, O> BinBuilder<L, R, O>
 where
     L: Value,

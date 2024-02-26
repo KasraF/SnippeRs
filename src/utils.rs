@@ -7,7 +7,7 @@ pub type Str = String;
 pub type IntArray = Vec<Int>;
 pub type StrArray = Vec<Str>;
 
-pub trait Value: Clone + Eq + 'static {}
+pub trait Value: Clone + Eq + std::fmt::Debug + 'static {}
 impl Value for Int {}
 impl Value for Str {}
 impl Value for IntArray {}
@@ -47,7 +47,7 @@ impl<T: Value> From<VIdx<T>> for usize {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct PIdx<T: Value> {
     i: usize,
     _phantom_data: PhantomData<T>,

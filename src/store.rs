@@ -4,6 +4,7 @@ use std::ops::Index;
 use crate::ops::Program;
 use crate::utils::*;
 
+#[derive(Debug)]
 pub struct MaxPIdx {
     int: PIdx<Int>,
     str: PIdx<Str>,

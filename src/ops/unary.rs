@@ -21,6 +21,16 @@ where
     code: UniCode,
 }
 
+impl<I, O> std::fmt::Debug for UniBuilder<I, O>
+where
+    I: Value,
+    O: Value,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "UniBuilder<{}>", (*self.code)("arg"))
+    }
+}
+
 impl<I, O> UniBuilder<I, O>
 where
     I: Value,

@@ -1,3 +1,5 @@
+use std::ops::FromResidual;
+
 use crate::ops::*;
 use crate::store::*;
 use crate::task::SynthesisTask;
@@ -170,29 +172,45 @@ impl Synthesizer {
     }
 
     pub fn next(&mut self) -> Box<AnyProg> {
-        if let Some(prog) = self.curr_enum.next(&mut self.store) {
-            Box::new(prog)
-        } else {
-            // Move to next enumerator and try again!
-            self.curr_vocab += 1;
+        loop {
+            match self.curr_enum.next(&mut self.store) {
+                Result::Some(prog) => return Box::new(prog),
+                Result::None => (), // try again
+                Result::Done => {
+                    // Move to next enumerator and try again!
+                    self.curr_vocab += 1;
 
-            if self.vocab.len() <= self.curr_vocab {
-                // We're out of vocabs. Go to next level and reset.
-                self.curr_level.inc();
-                println!("Increased level to {:?}", self.curr_level);
-                self.curr_vocab = 0;
+                    if self.vocab.len() <= self.curr_vocab {
+                        // We're out of vocabs. Go to next level and reset.
+                        self.curr_level.inc();
+                        self.curr_vocab = 0;
+                    }
+
+                    self.curr_enum =
+                        self.vocab[self.curr_vocab].enumerator(self.curr_level, &self.store);
+                }
             }
-
-            self.curr_enum = self.vocab[self.curr_vocab].enumerator(self.curr_level, &self.store);
-            self.next()
         }
     }
 }
 
-pub trait Enumerator {
-    fn next(&mut self, store: &mut Bank) -> Option<AnyProg>;
+pub trait Enumerator: std::fmt::Debug {
+    fn next(&mut self, store: &mut Bank) -> Result<AnyProg>;
 }
 
+pub enum Result<T> {
+    Some(T),
+    None,
+    Done,
+}
+
+impl<A, B> FromResidual<Option<A>> for Result<B> {
+    fn from_residual(residual: Option<A>) -> Self {
+        Result::None
+    }
+}
+
+#[derive(Debug)]
 struct UniEnumerator<I, O>
 where
     I: Value,
@@ -215,9 +233,9 @@ where
     PIdx<O>: Into<AnyProg>,
     MaxPIdx: MaxIdx<I>,
 {
-    fn next(&mut self, store: &mut Bank) -> Option<AnyProg> {
+    fn next(&mut self, store: &mut Bank) -> Result<AnyProg> {
         if !self.max_idx.check(self.arg_idx) {
-            return None;
+            return Result::Done;
         }
 
         debug_assert!(store.has_program(self.arg_idx));
@@ -248,13 +266,14 @@ where
                     self.level,
                 );
                 let prog_idx = store.put_program(program);
-                Some(prog_idx.into())
+                Result::Some(prog_idx.into())
             }
-            None => self.next(store),
+            None => Result::None,
         }
     }
 }
 
+#[derive(Debug)]
 struct BinEnumerator<L, R, O>
 where
     L: Value,
@@ -283,11 +302,11 @@ where
     MaxPIdx: MaxIdx<L>,
     MaxPIdx: MaxIdx<R>,
 {
-    fn next(&mut self, store: &mut Bank) -> Option<AnyProg> {
+    fn next(&mut self, store: &mut Bank) -> Result<AnyProg> {
         if !self.max_idx.check(self.rhs_idx) {
             if !self.max_idx.check(self.lhs_idx + 1) {
                 // We're out of programs
-                return None;
+                return Result::Done;
             }
 
             // Move to the next lhs child.
@@ -321,9 +340,9 @@ where
                     post,
                     self.level,
                 );
-                Some(store.put_program(program).into())
+                Result::Some(store.put_program(program).into())
             }
-            None => self.next(store),
+            None => Result::None,
         }
     }
 }
