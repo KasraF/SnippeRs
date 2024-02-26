@@ -1,13 +1,17 @@
 use crate::cond::*;
 use crate::store::*;
+use crate::synth;
+use crate::synth::Enumerator;
 use crate::utils::*;
 
 use super::Level;
 use super::Program;
 
-pub type UniProof<I> = &'static dyn Fn(&[I]) -> bool;
-pub type UniEval<I, O> =
-    &'static dyn Fn(&[I], PreCondition, PostCondition) -> (Vec<O>, PreCondition, PostCondition);
+pub type UniEval<I, O> = &'static dyn Fn(
+    &[I],
+    PreCondition,
+    PostCondition,
+) -> Option<(Vec<O>, PreCondition, PostCondition)>;
 pub type UniCode = &'static dyn Fn(&str) -> String;
 
 #[derive(Clone)]
@@ -16,19 +20,8 @@ where
     I: Value,
     O: Value,
 {
-    proof: UniProof<I>,
     eval: UniEval<I, O>,
     code: UniCode,
-}
-
-impl<I, O> std::fmt::Debug for UniBuilder<I, O>
-where
-    I: Value,
-    O: Value,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "UniBuilder<{}>", (*self.code)("arg"))
-    }
 }
 
 impl<I, O> UniBuilder<I, O>
@@ -37,28 +30,88 @@ where
     O: Value,
     Bank: Store<I>,
     Bank: Store<O>,
+    PIdx<O>: Into<AnyProg>,
+    MaxPIdx: MaxIdx<I>,
 {
-    pub fn new(proof: UniProof<I>, eval: UniEval<I, O>, code: UniCode) -> Self {
-        Self { proof, eval, code }
+    pub fn new(eval: UniEval<I, O>, code: UniCode) -> Self {
+        Self { eval, code }
     }
 
-    pub fn apply(
-        &self,
-        arg: PIdx<I>,
-        bank: &Bank,
-    ) -> Option<(Vec<O>, PreCondition, PostCondition)> {
-        let prog = &bank[arg];
-        let vals = prog.values(bank);
+    pub fn into_enum(&self, level: Level, max_idx: MaxPIdx) -> Box<dyn Enumerator> {
+        Box::new(UniEnumerator {
+            eval: self.eval,
+            code: self.code,
+            arg_idx: 0.into(),
+            level,
+            max_idx,
+        })
+    }
+}
 
-        if !(self.proof)(vals) {
-            return None;
+impl<I, O> std::fmt::Debug for UniEnumerator<I, O>
+where
+    I: Value,
+    O: Value,
+    Bank: Store<I>,
+    Bank: Store<O>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "UniBuilder<{}>", (*self.code)("arg"))
+    }
+}
+
+pub struct UniEnumerator<I, O>
+where
+    I: Value,
+    O: Value,
+    Bank: Store<I>,
+    Bank: Store<O>,
+{
+    eval: UniEval<I, O>,
+    code: UniCode,
+    arg_idx: PIdx<I>,
+    level: Level,
+    max_idx: MaxPIdx,
+}
+
+impl<I, O> Enumerator for UniEnumerator<I, O>
+where
+    I: Value,
+    O: Value,
+    Bank: Store<I>,
+    Bank: Store<O>,
+    PIdx<O>: Into<AnyProg>,
+    MaxPIdx: MaxIdx<I>,
+{
+    fn next(&mut self, store: &mut Bank) -> synth::Result<AnyProg> {
+        if !self.max_idx.check(self.arg_idx) {
+            return synth::Result::Done;
         }
-        let (pre, post) = prog.conditions();
-        Some((self.eval)(vals, pre.clone(), post.clone()))
-    }
 
-    pub fn code(&self) -> UniCode {
-        self.code
+        debug_assert!(store.has_program(self.arg_idx));
+
+        let (prog, curr_idx) = {
+            let mut prog = &store[self.arg_idx];
+            self.arg_idx += 1;
+            let prev_level = self.level.prev();
+
+            while prog.level() != prev_level && self.max_idx.check(self.arg_idx) {
+                prog = &store[self.arg_idx];
+                self.arg_idx += 1;
+            }
+
+            (prog, self.arg_idx - 1)
+        };
+
+        let vals = prog.values(store);
+        let (pre, post) = prog.conditions();
+        let (values, pre, post) = (self.eval)(vals, pre.clone(), post.clone())?;
+
+        // See if we can add this
+        let val_idx = store.put_values(values)?;
+        let program = UniProgram::new(curr_idx, val_idx, self.code, pre, post, self.level);
+        let prog_idx = store.put_program(program);
+        synth::Result::Some(prog_idx.into())
     }
 }
 

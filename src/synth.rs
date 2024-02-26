@@ -36,86 +36,18 @@ impl Builder {
     pub fn enumerator(&self, level: Level, store: &Bank) -> Box<dyn Enumerator> {
         let max_idx = store.curr_max();
         match &self {
-            Builder::UnaryIntInt(builder) => Box::new(UniEnumerator {
-                builder: builder.clone(),
-                arg_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::UnaryIntStr(builder) => Box::new(UniEnumerator {
-                builder: builder.clone(),
-                arg_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::UnaryStrInt(builder) => Box::new(UniEnumerator {
-                builder: builder.clone(),
-                arg_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::UnaryStrStr(builder) => Box::new(UniEnumerator {
-                builder: builder.clone(),
-                arg_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryIntIntInt(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryIntIntStr(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryIntStrInt(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryIntStrStr(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryStrIntInt(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryStrIntStr(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryStrStrInt(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
-            Builder::BinaryStrStrStr(builder) => Box::new(BinEnumerator {
-                builder: builder.clone(),
-                lhs_idx: 0.into(),
-                rhs_idx: 0.into(),
-                level,
-                max_idx,
-            }),
+            Builder::UnaryIntInt(builder) => builder.into_enum(level, max_idx),
+            Builder::UnaryIntStr(builder) => builder.into_enum(level, max_idx),
+            Builder::UnaryStrInt(builder) => builder.into_enum(level, max_idx),
+            Builder::UnaryStrStr(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryIntIntInt(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryIntIntStr(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryIntStrInt(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryIntStrStr(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryStrIntInt(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryStrIntStr(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryStrStrInt(builder) => builder.into_enum(level, max_idx),
+            Builder::BinaryStrStrStr(builder) => builder.into_enum(level, max_idx),
         }
     }
 }
@@ -205,144 +137,7 @@ pub enum Result<T> {
 }
 
 impl<A, B> FromResidual<Option<A>> for Result<B> {
-    fn from_residual(residual: Option<A>) -> Self {
+    fn from_residual(_: Option<A>) -> Self {
         Result::None
-    }
-}
-
-#[derive(Debug)]
-struct UniEnumerator<I, O>
-where
-    I: Value,
-    O: Value,
-    Bank: Store<I>,
-    Bank: Store<O>,
-{
-    builder: UniBuilder<I, O>,
-    arg_idx: PIdx<I>,
-    level: Level,
-    max_idx: MaxPIdx,
-}
-
-impl<I, O> Enumerator for UniEnumerator<I, O>
-where
-    I: Value,
-    O: Value,
-    Bank: Store<I>,
-    Bank: Store<O>,
-    PIdx<O>: Into<AnyProg>,
-    MaxPIdx: MaxIdx<I>,
-{
-    fn next(&mut self, store: &mut Bank) -> Result<AnyProg> {
-        if !self.max_idx.check(self.arg_idx) {
-            return Result::Done;
-        }
-
-        debug_assert!(store.has_program(self.arg_idx));
-
-        let curr_idx = {
-            let mut prog = &store[self.arg_idx];
-            self.arg_idx += 1;
-            let prev_level = self.level.prev();
-
-            while prog.level() != prev_level && self.max_idx.check(self.arg_idx) {
-                prog = &store[self.arg_idx];
-                self.arg_idx += 1;
-            }
-
-            self.arg_idx - 1
-        };
-
-        match self.builder.apply(curr_idx, store) {
-            Some((values, pre, post)) => {
-                // See if we can add this
-                let val_idx = store.put_values(values)?;
-                let program = UniProgram::new(
-                    curr_idx,
-                    val_idx,
-                    self.builder.code(),
-                    pre,
-                    post,
-                    self.level,
-                );
-                let prog_idx = store.put_program(program);
-                Result::Some(prog_idx.into())
-            }
-            None => Result::None,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct BinEnumerator<L, R, O>
-where
-    L: Value,
-    R: Value,
-    O: Value,
-    Bank: Store<L>,
-    Bank: Store<R>,
-    Bank: Store<O>,
-{
-    builder: BinBuilder<L, R, O>,
-    lhs_idx: PIdx<L>,
-    rhs_idx: PIdx<R>,
-    level: Level,
-    max_idx: MaxPIdx,
-}
-
-impl<L, R, O> Enumerator for BinEnumerator<L, R, O>
-where
-    L: Value,
-    R: Value,
-    O: Value,
-    Bank: Store<L>,
-    Bank: Store<R>,
-    Bank: Store<O>,
-    PIdx<O>: Into<AnyProg>,
-    MaxPIdx: MaxIdx<L>,
-    MaxPIdx: MaxIdx<R>,
-{
-    fn next(&mut self, store: &mut Bank) -> Result<AnyProg> {
-        if !self.max_idx.check(self.rhs_idx) {
-            if !self.max_idx.check(self.lhs_idx + 1) {
-                // We're out of programs
-                return Result::Done;
-            }
-
-            // Move to the next lhs child.
-            self.lhs_idx += 1; // FIXME off by one
-            self.rhs_idx = 0.into();
-        }
-
-        debug_assert!(store.has_program(self.lhs_idx));
-        debug_assert!(store.has_program(self.rhs_idx));
-
-        let lhs = &store[self.lhs_idx];
-        let rhs = &store[self.rhs_idx];
-        self.rhs_idx += 1;
-
-        if lhs.level().bin_next(rhs.level()) != self.level {
-            return Result::None;
-        }
-
-        // TODO Move the logic entirely out of Builder. Builder should just contain references to the methods,
-        // so we can initialize an Enumerator from it.
-
-        match self.builder.apply(self.lhs_idx, self.rhs_idx - 1, store) {
-            Some((values, pre, post)) => {
-                let values_idx = store.put_values(values)?;
-                let program = BinProgram::new(
-                    self.lhs_idx,
-                    self.rhs_idx - 1,
-                    values_idx,
-                    self.builder.code(),
-                    pre,
-                    post,
-                    self.level,
-                );
-                Result::Some(store.put_program(program).into())
-            }
-            None => Result::None,
-        }
     }
 }

@@ -8,7 +8,7 @@ mod nullary;
 mod unary;
 mod variable;
 
-pub(crate) use binary::{BinBuilder, BinProgram};
+pub(crate) use binary::{BinBuilder, BinEnumerator, BinProgram};
 pub(crate) use unary::{UniBuilder, UniProgram};
 pub(crate) use variable::Variable;
 

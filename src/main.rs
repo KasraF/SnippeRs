@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![feature(try_trait_v2)]
+#![feature(iterator_try_collect)]
 
 use std::borrow::Borrow;
 
@@ -16,24 +17,20 @@ use synth::Vocab;
 pub(crate) use task::SynthesisTask;
 pub(crate) use utils::*;
 
-fn bin_true(_: &[Int], _: &[Int]) -> bool {
-    true
-}
-
-fn sum_proof(lhs: &[Int], rhs: &[Int]) -> bool {
-    lhs.iter()
-        .zip(rhs)
-        .all(|(l, r)| l.checked_add(*r).is_some())
-}
-
 fn sum_eval(
     lhs: &[Int],
     rhs: &[Int],
     pre: PreCondition,
     post: PostCondition,
-) -> (Vec<Int>, PreCondition, PostCondition) {
-    let rs = lhs.iter().zip(rhs).map(|(x, y)| x + y).collect();
-    (rs, pre, post)
+) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
+    debug_assert_eq!(lhs.len(), rhs.len());
+
+    let rs = lhs
+        .iter()
+        .zip(rhs)
+        .map(|(x, y)| x.checked_add(*y))
+        .try_collect()?;
+    Some((rs, pre, post))
 }
 
 fn sum_code(lhs: &str, rhs: &str) -> String {
@@ -45,20 +42,17 @@ fn sub_eval(
     rhs: &[Int],
     pre: PreCondition,
     post: PostCondition,
-) -> (Vec<Int>, PreCondition, PostCondition) {
-    let rs = lhs.iter().zip(rhs).map(|(x, y)| x - y).collect();
-    (rs, pre, post)
+) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
+    let rs = lhs
+        .iter()
+        .zip(rhs)
+        .map(|(x, y)| x.checked_sub(*y))
+        .try_collect()?;
+    Some((rs, pre, post))
 }
 
 fn sub_code(lhs: &str, rhs: &str) -> String {
     format!("{lhs} - {rhs}")
-}
-
-fn pow_proof(lhs: &[Int], rhs: &[Int]) -> bool {
-    // TODO Should `eval` just return an option?
-    lhs.iter()
-        .zip(rhs)
-        .all(|(l, r)| *r >= 0 && l.checked_pow(*r as u32).is_some())
 }
 
 fn pow_eval(
@@ -66,26 +60,32 @@ fn pow_eval(
     rhs: &[Int],
     pre: PreCondition,
     post: PostCondition,
-) -> (Vec<Int>, PreCondition, PostCondition) {
-    let rs = lhs.iter().zip(rhs).map(|(x, y)| x.pow(*y as u32)).collect();
-    (rs, pre, post)
+) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
+    let rs = lhs
+        .iter()
+        .zip(rhs)
+        .map(|(x, y)| {
+            if *y < 0 {
+                None
+            } else {
+                x.checked_pow(*y as u32)
+            }
+        })
+        .try_collect()?;
+    Some((rs, pre, post))
 }
 
 fn pow_code(lhs: &str, rhs: &str) -> String {
     format!("Math.pow({lhs}, {rhs})")
 }
 
-fn len_proof(_: &[Str]) -> bool {
-    true
-}
-
 fn len_eval(
     arg: &[Str],
     pre: PreCondition,
     post: PostCondition,
-) -> (Vec<Int>, PreCondition, PostCondition) {
+) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
     let rs = arg.iter().map(|s| s.len() as i32).collect();
-    (rs, pre, post)
+    Some((rs, pre, post))
 }
 
 fn len_code(arg: &str) -> String {
@@ -106,10 +106,10 @@ fn main() {
         2,
     );
     let vocab: Vocab = vec![
-        UniBuilder::new(&len_proof, &len_eval, &len_code).into(),
-        BinBuilder::new(&sum_proof, &sum_eval, &sum_code).into(),
-        BinBuilder::new(&bin_true, &sub_eval, &sub_code).into(),
-        BinBuilder::new(&pow_proof, &pow_eval, &pow_code).into(),
+        UniBuilder::new(&len_eval, &len_code).into(),
+        BinBuilder::new(&sum_eval, &sum_code).into(),
+        BinBuilder::new(&sub_eval, &sub_code).into(),
+        BinBuilder::new(&pow_eval, &pow_code).into(),
     ];
     let mut synth = synth::Synthesizer::new(vocab, task);
 
