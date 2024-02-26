@@ -322,7 +322,7 @@ where
         self.rhs_idx += 1;
 
         if lhs.level().bin_next(rhs.level()) != self.level {
-            return self.next(store);
+            return Result::None;
         }
 
         // TODO Move the logic entirely out of Builder. Builder should just contain references to the methods,
