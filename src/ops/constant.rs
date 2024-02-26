@@ -42,4 +42,8 @@ where
     fn level(&self) -> Level {
         0.into()
     }
+
+    fn pointer(&self) -> Option<Pointer> {
+        None
+    }
 }

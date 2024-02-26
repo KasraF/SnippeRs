@@ -19,6 +19,7 @@ where
     rhs: PIdx<R>,
     code: BinCode,
     values: VIdx<O>,
+    pointer: Option<Pointer>,
     level: Level,
 }
 
@@ -38,6 +39,7 @@ where
         code: BinCode,
         pre: PreCondition,
         post: PostCondition,
+        pointer: Option<Pointer>,
         level: Level,
     ) -> Box<dyn Program<O>> {
         Box::new(Self {
@@ -47,6 +49,7 @@ where
             values,
             pre,
             post,
+            pointer,
             level,
         })
     }
@@ -78,14 +81,18 @@ where
     fn level(&self) -> Level {
         self.level
     }
+
+    fn pointer(&self) -> Option<Pointer> {
+        self.pointer
+    }
 }
 
 pub type BinEval<L, R, O> = &'static dyn Fn(
-    &[L],
-    &[R],
-    PreCondition,
-    PostCondition,
-) -> Option<(Vec<O>, PreCondition, PostCondition)>;
+    &dyn Program<L>,
+    &dyn Program<R>,
+    Condition,
+    &Bank,
+) -> Option<(Vec<O>, PostCondition, Option<Pointer>)>;
 pub type BinCode = &'static dyn Fn(&str, &str) -> String;
 
 #[derive(Clone)]
@@ -165,7 +172,7 @@ where
             }
 
             // Move to the next lhs child.
-            self.lhs_idx += 1; // FIXME off by one
+            self.lhs_idx += 1;
             self.rhs_idx = 0.into();
         }
 
@@ -180,11 +187,8 @@ where
             return synth::Result::None;
         }
 
-        let l_vals = lhs.values(store);
-        let r_vals = rhs.values(store);
-
         if let Some((pre, post)) = Condition::sequence(lhs.conditions(), rhs.conditions()) {
-            let (values, pre, post) = (*self.eval)(l_vals, r_vals, pre, post)?;
+            let (values, post, pointer) = (*self.eval)(lhs.as_ref(), rhs.as_ref(), post, &store)?;
             let values_idx = store.put_values(values)?;
             let program = BinProgram::new(
                 self.lhs_idx,
@@ -193,6 +197,7 @@ where
                 self.code,
                 pre,
                 post,
+                pointer,
                 self.level,
             );
 

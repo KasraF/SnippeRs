@@ -26,10 +26,9 @@ pub fn vocab() -> Vocab {
     vec![
         UniBuilder::new(&str::len_eval, &str::len_code).into(),
         BinBuilder::new(&str::deref_eval, &str::deref_code).into(),
+        UniBuilder::new(&int::minus_eval, &int::minus_code).into(),
         BinBuilder::new(&int::sum_eval, &int::sum_code).into(),
         BinBuilder::new(&int::sub_eval, &int::sub_code).into(),
-        BinBuilder::new(&int::pow_eval, &int::pow_code).into(),
-        UniBuilder::new(&int::minus_eval, &int::minus_code).into(),
     ]
 }
 

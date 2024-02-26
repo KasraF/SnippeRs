@@ -2,6 +2,7 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::utils::*;
 
+pub type Pointer = usize;
 pub type PreCondition = Condition;
 pub type PostCondition = Condition;
 
@@ -62,7 +63,7 @@ impl Condition {
         Some((pre_condition.into(), post_condition.into()))
     }
 
-    pub fn mutate(&self, var: usize, val: Option<AnyVal>) -> Condition {
+    pub fn mutate(&self, var: Pointer, val: Option<AnyVal>) -> Condition {
         let mut inner = self.inner.clone();
         inner[var] = val;
         Condition { inner }

@@ -1,19 +1,21 @@
 use crate::*;
 
-pub(crate) fn sum_eval(
-    lhs: &[Int],
-    rhs: &[Int],
-    pre: PreCondition,
-    post: PostCondition,
-) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
-    debug_assert_eq!(lhs.len(), rhs.len());
+use self::store::Bank;
 
-    let rs = lhs
+pub(crate) fn sum_eval(
+    lhs: &dyn Program<Int>,
+    rhs: &dyn Program<Int>,
+    cond: Condition,
+    store: &Bank,
+) -> Option<(Vec<Int>, PostCondition, Option<Pointer>)> {
+    let lhs_vals = lhs.values(store);
+    let rhs_vals = rhs.values(store);
+    let rs = lhs_vals
         .iter()
-        .zip(rhs)
+        .zip(rhs_vals)
         .map(|(x, y)| x.checked_add(*y))
         .try_collect()?;
-    Some((rs, pre, post))
+    Some((rs, cond, None))
 }
 
 pub(crate) fn sum_code(lhs: &str, rhs: &str) -> String {
@@ -21,54 +23,35 @@ pub(crate) fn sum_code(lhs: &str, rhs: &str) -> String {
 }
 
 pub(crate) fn sub_eval(
-    lhs: &[Int],
-    rhs: &[Int],
-    pre: PreCondition,
-    post: PostCondition,
-) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
+    lhs: &dyn Program<Int>,
+    rhs: &dyn Program<Int>,
+    cond: Condition,
+    store: &Bank,
+) -> Option<(Vec<Int>, PostCondition, Option<Pointer>)> {
     let rs = lhs
+        .values(store)
         .iter()
-        .zip(rhs)
+        .zip(rhs.values(store))
         .map(|(x, y)| x.checked_sub(*y))
         .try_collect()?;
-    Some((rs, pre, post))
+    Some((rs, cond, None))
 }
 
 pub(crate) fn sub_code(lhs: &str, rhs: &str) -> String {
     format!("{lhs} - {rhs}")
 }
 
-pub(crate) fn pow_eval(
-    lhs: &[Int],
-    rhs: &[Int],
-    pre: PreCondition,
-    post: PostCondition,
-) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
-    let rs = lhs
-        .iter()
-        .zip(rhs)
-        .map(|(x, y)| {
-            if *y < 0 {
-                None
-            } else {
-                x.checked_pow(*y as u32)
-            }
-        })
-        .try_collect()?;
-    Some((rs, pre, post))
-}
-
-pub(crate) fn pow_code(lhs: &str, rhs: &str) -> String {
-    format!("Math.pow({lhs}, {rhs})")
-}
-
 pub(crate) fn minus_eval(
-    arg: &[Int],
-    pre: PreCondition,
-    post: PostCondition,
-) -> Option<(Vec<Int>, PreCondition, PostCondition)> {
-    let rs = arg.iter().map(|x| x.checked_neg()).try_collect()?;
-    Some((rs, pre, post))
+    arg: &dyn Program<Int>,
+    cond: Condition,
+    store: &Bank,
+) -> Option<(Vec<Int>, PostCondition, Option<Pointer>)> {
+    let rs = arg
+        .values(store)
+        .iter()
+        .map(|x| x.checked_neg())
+        .try_collect()?;
+    Some((rs, cond, None))
 }
 
 pub(crate) fn minus_code(arg: &str) -> String {

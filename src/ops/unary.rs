@@ -8,10 +8,10 @@ use super::Level;
 use super::Program;
 
 pub type UniEval<I, O> = &'static dyn Fn(
-    &[I],
-    PreCondition,
-    PostCondition,
-) -> Option<(Vec<O>, PreCondition, PostCondition)>;
+    &dyn Program<I>,
+    Condition,
+    &Bank,
+) -> Option<(Vec<O>, PostCondition, Option<Pointer>)>;
 pub type UniCode = &'static dyn Fn(&str) -> String;
 
 #[derive(Clone)]
@@ -103,13 +103,21 @@ where
             (prog, self.arg_idx - 1)
         };
 
-        let vals = prog.values(store);
         let (pre, post) = prog.conditions();
-        let (values, pre, post) = (self.eval)(vals, pre.clone(), post.clone())?;
+        let (values, post, pointer) = (self.eval)(prog.as_ref(), post.clone(), &store)?;
+        let pre = pre.clone(); // TODO Would be nice to avoid this clone if OE denies this program.
 
         // See if we can add this
         let val_idx = store.put_values(values)?;
-        let program = UniProgram::new(curr_idx, val_idx, self.code, pre, post, self.level);
+        let program = UniProgram::new(
+            curr_idx,
+            val_idx,
+            self.code,
+            pre.clone(),
+            post,
+            pointer,
+            self.level,
+        );
         let prog_idx = store.put_program(program);
         synth::Result::Some(prog_idx.into())
     }
@@ -125,6 +133,7 @@ where
     arg: PIdx<L>,
     code: UniCode,
     values: VIdx<O>,
+    pointer: Option<Pointer>,
     level: Level,
 }
 
@@ -141,6 +150,7 @@ where
         code: UniCode,
         pre: PreCondition,
         post: PostCondition,
+        pointer: Option<Pointer>,
         level: Level,
     ) -> Box<dyn Program<O>> {
         Box::new(Self {
@@ -149,6 +159,7 @@ where
             values,
             pre,
             post,
+            pointer,
             level,
         })
     }
@@ -177,5 +188,9 @@ where
     #[inline]
     fn level(&self) -> Level {
         self.level
+    }
+
+    fn pointer(&self) -> Option<Pointer> {
+        self.pointer
     }
 }

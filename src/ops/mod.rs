@@ -51,5 +51,6 @@ pub trait Program<T> {
     fn code(&self, store: &Bank) -> String;
     fn values<'s>(&self, store: &'s Bank) -> &'s [T];
     fn conditions(&self) -> (&PreCondition, &PostCondition);
+    fn pointer(&self) -> Option<Pointer>;
     fn level(&self) -> Level;
 }
