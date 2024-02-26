@@ -20,6 +20,12 @@ fn bin_true(_: &[Int], _: &[Int]) -> bool {
     true
 }
 
+fn sum_proof(lhs: &[Int], rhs: &[Int]) -> bool {
+    lhs.iter()
+        .zip(rhs)
+        .all(|(l, r)| l.checked_add(*r).is_some())
+}
+
 fn sum_eval(
     lhs: &[Int],
     rhs: &[Int],
@@ -46,6 +52,27 @@ fn sub_eval(
 
 fn sub_code(lhs: &str, rhs: &str) -> String {
     format!("{lhs} - {rhs}")
+}
+
+fn pow_proof(lhs: &[Int], rhs: &[Int]) -> bool {
+    // TODO Should `eval` just return an option?
+    lhs.iter()
+        .zip(rhs)
+        .all(|(l, r)| *r >= 0 && l.checked_pow(*r as u32).is_some())
+}
+
+fn pow_eval(
+    lhs: &[Int],
+    rhs: &[Int],
+    pre: PreCondition,
+    post: PostCondition,
+) -> (Vec<Int>, PreCondition, PostCondition) {
+    let rs = lhs.iter().zip(rhs).map(|(x, y)| x.pow(*y as u32)).collect();
+    (rs, pre, post)
+}
+
+fn pow_code(lhs: &str, rhs: &str) -> String {
+    format!("Math.pow({lhs}, {rhs})")
 }
 
 fn len_proof(_: &[Str]) -> bool {
@@ -80,8 +107,9 @@ fn main() {
     );
     let vocab: Vocab = vec![
         UniBuilder::new(&len_proof, &len_eval, &len_code).into(),
-        BinBuilder::new(&bin_true, &sum_eval, &sum_code).into(),
+        BinBuilder::new(&sum_proof, &sum_eval, &sum_code).into(),
         BinBuilder::new(&bin_true, &sub_eval, &sub_code).into(),
+        BinBuilder::new(&pow_proof, &pow_eval, &pow_code).into(),
     ];
     let mut synth = synth::Synthesizer::new(vocab, task);
 
