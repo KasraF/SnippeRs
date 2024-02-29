@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::ops::Program;
+use crate::{ops::Program, store::Bank, Level, Pointer, PostCondition, PreCondition};
 
 pub type Int = i32;
 pub type Str = String;
@@ -13,7 +13,9 @@ impl Value for Str {}
 impl Value for IntArray {}
 impl Value for StrArray {}
 
-#[derive(Clone, PartialEq, Eq)]
+pub type Error = Box<dyn std::error::Error>;
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct VIdx<T: Value> {
     i: usize,
     _phantom_data: PhantomData<T>,
@@ -117,7 +119,7 @@ pub enum Anies {
     Str(Vec<Str>),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AnyVal {
     Int(VIdx<Int>),
     Str(VIdx<Str>),
@@ -127,6 +129,36 @@ pub enum AnyVal {
 pub enum AnyProg {
     Int(PIdx<Int>),
     Str(PIdx<Str>),
+}
+
+impl AnyProg {
+    pub fn code(&self, store: &Bank) -> String {
+        match self {
+            AnyProg::Int(prog) => store[*prog].code(store),
+            AnyProg::Str(prog) => store[*prog].code(store),
+        }
+    }
+
+    pub fn conditions<'s>(&self, store: &'s Bank) -> (&'s PreCondition, &'s PostCondition) {
+        match self {
+            AnyProg::Int(prog) => store[*prog].conditions(),
+            AnyProg::Str(prog) => store[*prog].conditions(),
+        }
+    }
+
+    pub fn pointer(&self, store: &Bank) -> Option<Pointer> {
+        match self {
+            AnyProg::Int(prog) => store[*prog].pointer(),
+            AnyProg::Str(prog) => store[*prog].pointer(),
+        }
+    }
+
+    pub fn level(&self, store: &Bank) -> Level {
+        match self {
+            AnyProg::Int(prog) => store[*prog].level(),
+            AnyProg::Str(prog) => store[*prog].level(),
+        }
+    }
 }
 
 impl From<PIdx<Int>> for AnyProg {

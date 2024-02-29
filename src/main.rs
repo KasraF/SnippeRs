@@ -3,7 +3,7 @@
 #![feature(iterator_try_collect)]
 #![feature(ascii_char)]
 
-use std::borrow::Borrow;
+use std::io::Write;
 
 mod cond;
 mod ops;
@@ -18,7 +18,8 @@ pub(crate) use ops::*;
 pub(crate) use task::SynthesisTask;
 pub(crate) use utils::*;
 
-fn main() {
+fn main() -> Result<(), utils::Error> {
+    let mut stdout = std::io::stdout();
     let task = SynthesisTask::new(
         [
             ("x".to_string(), Anies::Int(vec![0, 2])),
@@ -36,10 +37,13 @@ fn main() {
     loop {
         let prog = synth.next();
         let store = synth.store();
-        let code = match prog.borrow() {
-            AnyProg::Int(p) => store[*p].code(store),
-            AnyProg::Str(p) => store[*p].code(store),
-        };
-        println!("{code}");
+        let code = prog.code(store);
+        let (pre, post) = prog.conditions(store);
+
+        pre.pretty_print(&mut stdout, store)?;
+        write!(stdout, " {code} ")?;
+        post.pretty_print(&mut stdout, store)?;
+        write!(stdout, "\n")?;
+        stdout.flush()?;
     }
 }

@@ -46,4 +46,8 @@ where
     fn pointer(&self) -> Option<Pointer> {
         None
     }
+
+    fn values_idx(&self) -> VIdx<T> {
+        self.values
+    }
 }

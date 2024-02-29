@@ -23,19 +23,20 @@ impl Synthesizer {
         let curr_vocab = 0;
 
         // Building the store takes a few steps
-        let mut store = Bank::new(task.examples());
+        let mut store = Bank::new(task.examples(), task.var_map.clone());
 
         // 3. Add the variables
-        let variables = task.variables().count();
         for (name, values, var_idx) in task.variables() {
             match values {
                 Anies::Int(values) => {
-                    let idx = store.put_values(values.clone()).unwrap(); // FIXME
-                    store.put_program(Variable::<Int>::new(name.clone(), idx, *var_idx, variables));
+                    store
+                        .put_variable(name.clone(), values.clone(), var_idx)
+                        .expect("Int variable already exists.");
                 }
                 Anies::Str(values) => {
-                    let idx = store.put_values(values.clone()).unwrap(); // FIXME
-                    store.put_program(Variable::<Str>::new(name.clone(), idx, *var_idx, variables));
+                    store
+                        .put_variable(name.clone(), values.clone(), var_idx)
+                        .expect("Str variable already exists.");
                 }
             }
         }
@@ -44,16 +45,14 @@ impl Synthesizer {
         for con in vocab::constants() {
             match con {
                 ConstVal::Int(code, val) => {
-                    let values = vec![val; task.examples()];
-                    if let Some(idx) = store.put_values(values) {
-                        store.put_program(Constant::<Int>::new(code.to_string(), idx, variables));
-                    }
+                    store
+                        .put_constant(code, val)
+                        .expect("Constant {code} already exists.");
                 }
                 ConstVal::Str(code, val) => {
-                    let values = vec![val; task.examples()];
-                    if let Some(idx) = store.put_values(values) {
-                        store.put_program(Constant::<Str>::new(code.to_string(), idx, variables));
-                    }
+                    store
+                        .put_constant(code, val)
+                        .expect("Constant {code} already exists.");
                 }
             }
         }
@@ -110,6 +109,12 @@ pub enum Result<T> {
 
 impl<A, B> FromResidual<Option<A>> for Result<B> {
     fn from_residual(_: Option<A>) -> Self {
+        Result::None
+    }
+}
+
+impl<A, B, C> FromResidual<std::result::Result<A, B>> for Result<C> {
+    fn from_residual(_: std::result::Result<A, B>) -> Self {
         Result::None
     }
 }

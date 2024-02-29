@@ -29,6 +29,7 @@ pub fn vocab() -> Vocab {
         UniBuilder::new(&int::minus_eval, &int::minus_code).into(),
         BinBuilder::new(&int::sum_eval, &int::sum_code).into(),
         BinBuilder::new(&int::sub_eval, &int::sub_code).into(),
+        UniBuilder::new(&int::inc_eval, &int::inc_code).into(),
     ]
 }
 

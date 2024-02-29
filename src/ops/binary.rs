@@ -6,6 +6,100 @@ use crate::store::*;
 use crate::synth;
 use crate::synth::Enumerator;
 use crate::utils::*;
+use crate::MaybeProgram;
+
+pub struct BinMaybeProgram<L, R, O>
+where
+    L: Value,
+    R: Value,
+    O: Value,
+{
+    pre: PreCondition,
+    post: PostCondition,
+    lhs: PIdx<L>,
+    rhs: PIdx<R>,
+    code: BinCode,
+    values: Option<Vec<O>>,
+    pointer: Option<Pointer>,
+    level: Level,
+}
+
+impl<L, R, O> BinMaybeProgram<L, R, O>
+where
+    L: Value,
+    R: Value,
+    O: Value,
+    Bank: Store<L>,
+    Bank: Store<R>,
+    Bank: Store<O>,
+{
+    pub fn new(
+        lhs: PIdx<L>,
+        rhs: PIdx<R>,
+        values: Vec<O>,
+        code: BinCode,
+        pre: PreCondition,
+        post: PostCondition,
+        pointer: Option<Pointer>,
+        level: Level,
+    ) -> Box<dyn MaybeProgram<O>> {
+        Box::new(Self {
+            lhs,
+            rhs,
+            code,
+            values: Some(values),
+            pre,
+            post,
+            pointer,
+            level,
+        })
+    }
+}
+
+impl<L, R, O> MaybeProgram<O> for BinMaybeProgram<L, R, O>
+where
+    L: Value,
+    R: Value,
+    O: Value,
+    Bank: Store<L>,
+    Bank: Store<R>,
+    Bank: Store<O>,
+{
+    fn values(&self) -> Option<&[O]> {
+        self.values.as_deref()
+    }
+
+    fn extract_values(&mut self) -> Option<Vec<O>> {
+        let mut rs = None;
+        std::mem::swap(&mut rs, &mut self.values);
+        rs
+    }
+
+    fn into_program(self: Box<Self>, values: VIdx<O>) -> Box<dyn Program<O>> {
+        BinProgram::new(
+            self.lhs,
+            self.rhs,
+            values,
+            self.code,
+            self.pre,
+            self.post,
+            self.pointer,
+            self.level,
+        )
+    }
+
+    fn pointer(&self) -> Option<Pointer> {
+        self.pointer
+    }
+
+    fn pre_condition(&self) -> &PreCondition {
+        &self.pre
+    }
+
+    fn post_condition(&self) -> &PostCondition {
+        &self.post
+    }
+}
 
 pub struct BinProgram<L, R, O>
 where
@@ -32,6 +126,7 @@ where
     Bank: Store<R>,
     Bank: Store<O>,
 {
+    #[inline]
     pub fn new(
         lhs: PIdx<L>,
         rhs: PIdx<R>,
@@ -85,14 +180,18 @@ where
     fn pointer(&self) -> Option<Pointer> {
         self.pointer
     }
+
+    fn values_idx(&self) -> VIdx<O> {
+        self.values
+    }
 }
 
 pub type BinEval<L, R, O> = &'static dyn Fn(
     &dyn Program<L>,
     &dyn Program<R>,
-    Condition,
+    &Condition,
     &Bank,
-) -> Option<(Vec<O>, PostCondition, Option<Pointer>)>;
+) -> Option<(Vec<O>, Option<Mutation>, Option<Pointer>)>;
 pub type BinCode = &'static dyn Fn(&str, &str) -> String;
 
 #[derive(Clone)]
@@ -187,24 +286,27 @@ where
             return synth::Result::None;
         }
 
-        if let Some((pre, post)) = Condition::sequence(lhs.conditions(), rhs.conditions()) {
-            let (values, post, pointer) = (*self.eval)(lhs.as_ref(), rhs.as_ref(), post, &store)?;
-            let values_idx = store.put_values(values)?;
-            let program = BinProgram::new(
-                self.lhs_idx,
-                self.rhs_idx - 1,
-                values_idx,
-                self.code,
-                pre,
-                post,
-                pointer,
-                self.level,
-            );
+        let (pre, post) = Condition::sequence(lhs.conditions(), rhs.conditions())?;
+        let (values, mutation, pointer) = (*self.eval)(lhs.as_ref(), rhs.as_ref(), &post, &store)?;
 
-            synth::Result::Some(store.put_program(program).into())
-        } else {
-            synth::Result::None
-        }
+        let post = match mutation {
+            Some(mutation) => mutation.apply(post, store),
+            None => post.clone(),
+        };
+
+        let maybe_program = BinMaybeProgram::new(
+            self.lhs_idx,
+            self.rhs_idx - 1,
+            values,
+            self.code,
+            pre,
+            post,
+            pointer,
+            self.level,
+        );
+        let rs = store.put_program(maybe_program)?;
+
+        synth::Result::Some(rs.into())
     }
 }
 
