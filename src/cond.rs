@@ -56,7 +56,7 @@ impl Mutation {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Condition {
     inner: SmallVec<[Option<AnyVal>; 4]>, // Up to 5 variables on the stack!
 }
@@ -107,8 +107,15 @@ impl Condition {
         }
 
         for i in 0..post_condition.len() {
-            post_condition[i] = snd.1.inner[i];
+            if snd.1.inner[i].is_some() {
+                post_condition[i] = snd.1.inner[i];
+            }
         }
+
+        // println!(
+        //     "fst: {:?}\nsnd: {:?}\npre: {:?}\npost: {:?}",
+        //     &fst, &snd, &pre_condition, &post_condition
+        // );
 
         Some((pre_condition.into(), post_condition.into()))
     }

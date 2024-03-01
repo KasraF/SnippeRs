@@ -22,6 +22,30 @@ pub struct VIdx<T: Value> {
     _phantom_data: PhantomData<T>,
 }
 
+impl std::fmt::Debug for VIdx<Int> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VIdx<Int>({})", self.i)
+    }
+}
+
+impl std::fmt::Debug for VIdx<Str> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VIdx<Str>({})", self.i)
+    }
+}
+
+impl std::fmt::Debug for VIdx<IntArray> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VIdx<Array<Int>>({})", self.i)
+    }
+}
+
+// impl std::fmt::Debug for VIdx<IntArray> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "VIdx<Array<Int>>({})", self.i)
+//     }
+// }
+
 impl<T: Value> std::ops::Add<usize> for VIdx<T> {
     type Output = usize;
 
@@ -139,7 +163,7 @@ impl From<Vec<IntArray>> for Anies {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum AnyVal {
     Int(VIdx<Int>),
     Str(VIdx<Str>),
