@@ -79,6 +79,24 @@ impl Variable<Int> {
     }
 }
 
+impl Variable<IntArray> {
+    pub fn new(
+        name: String,
+        values: VIdx<IntArray>,
+        pointer: Pointer,
+        variables: usize,
+    ) -> Box<Self> {
+        let cond =
+            Condition::empty(variables).mutate_with_index(pointer, Some(AnyVal::IntArray(values)));
+        Box::new(Self {
+            name,
+            values,
+            cond,
+            pointer,
+        })
+    }
+}
+
 impl<T: Value> Program<T> for Variable<T>
 where
     Bank: Store<T>,

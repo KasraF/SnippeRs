@@ -15,6 +15,7 @@ mod vocab;
 
 pub(crate) use cond::*;
 pub(crate) use ops::*;
+pub(crate) use store::*;
 pub(crate) use task::SynthesisTask;
 pub(crate) use utils::*;
 
@@ -41,9 +42,9 @@ fn main() -> Result<(), utils::Error> {
         let (pre, post) = prog.conditions(store);
 
         pre.pretty_print(&mut stdout, store)?;
-        write!(stdout, " {code} ")?;
+        write!(stdout, "\n{code}\n")?;
         post.pretty_print(&mut stdout, store)?;
-        write!(stdout, "\n")?;
+        write!(stdout, "\n\n")?;
         stdout.flush()?;
     }
 }

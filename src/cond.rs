@@ -44,6 +44,14 @@ impl Mutation {
                 let val_idx = store[prog_idx].values_idx();
                 cond.mutate_with_index(self.pointer, Some(AnyVal::Str(val_idx)))
             }
+            Anies::IntArray(values) => {
+                let prog_idx = match store.put_variable(name, values, self.pointer) {
+                    Ok(idx) => idx,
+                    Err(idx) => idx,
+                };
+                let val_idx = store[prog_idx].values_idx();
+                cond.mutate_with_index(self.pointer, Some(AnyVal::IntArray(val_idx)))
+            }
         }
     }
 }
@@ -126,6 +134,10 @@ impl Condition {
                             write!(out, "{values:?}")?;
                         }
                         AnyVal::Str(idx) => {
+                            let values = &store.get_values(*idx);
+                            write!(out, "{values:?}")?;
+                        }
+                        AnyVal::IntArray(idx) => {
                             let values = &store.get_values(*idx);
                             write!(out, "{values:?}")?;
                         }

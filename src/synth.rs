@@ -38,6 +38,11 @@ impl Synthesizer {
                         .put_variable(name.clone(), values.clone(), var_idx)
                         .expect("Str variable already exists.");
                 }
+                Anies::IntArray(values) => {
+                    store
+                        .put_variable(name.clone(), values.clone(), var_idx)
+                        .expect("IntArray variable already exists.");
+                }
             }
         }
 
@@ -50,6 +55,11 @@ impl Synthesizer {
                         .expect("Constant {code} already exists.");
                 }
                 ConstVal::Str(code, val) => {
+                    store
+                        .put_constant(code, val)
+                        .expect("Constant {code} already exists.");
+                }
+                ConstVal::IntArray(code, val) => {
                     store
                         .put_constant(code, val)
                         .expect("Constant {code} already exists.");

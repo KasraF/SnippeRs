@@ -4,8 +4,9 @@ use crate::{ops::Program, store::Bank, Level, Pointer, PostCondition, PreConditi
 
 pub type Int = i32;
 pub type Str = String;
-pub type IntArray = Vec<Int>;
-pub type StrArray = Vec<Str>;
+pub type Array<T> = Vec<T>;
+pub type IntArray = Array<Int>;
+pub type StrArray = Array<Str>;
 
 pub trait Value: Clone + Eq + std::fmt::Debug + 'static {}
 impl Value for Int {}
@@ -117,18 +118,39 @@ pub enum Any {
 pub enum Anies {
     Int(Vec<Int>),
     Str(Vec<Str>),
+    IntArray(Vec<IntArray>),
+}
+
+impl From<Vec<Int>> for Anies {
+    fn from(value: Vec<Int>) -> Self {
+        Anies::Int(value)
+    }
+}
+
+impl From<Vec<Str>> for Anies {
+    fn from(value: Vec<Str>) -> Self {
+        Anies::Str(value)
+    }
+}
+
+impl From<Vec<IntArray>> for Anies {
+    fn from(value: Vec<IntArray>) -> Self {
+        Anies::IntArray(value)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AnyVal {
     Int(VIdx<Int>),
     Str(VIdx<Str>),
+    IntArray(VIdx<IntArray>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AnyProg {
     Int(PIdx<Int>),
     Str(PIdx<Str>),
+    IntArray(PIdx<IntArray>),
 }
 
 impl AnyProg {
@@ -136,6 +158,7 @@ impl AnyProg {
         match self {
             AnyProg::Int(prog) => store[*prog].code(store),
             AnyProg::Str(prog) => store[*prog].code(store),
+            AnyProg::IntArray(prog) => store[*prog].code(store),
         }
     }
 
@@ -143,6 +166,7 @@ impl AnyProg {
         match self {
             AnyProg::Int(prog) => store[*prog].conditions(),
             AnyProg::Str(prog) => store[*prog].conditions(),
+            AnyProg::IntArray(prog) => store[*prog].conditions(),
         }
     }
 
@@ -150,6 +174,7 @@ impl AnyProg {
         match self {
             AnyProg::Int(prog) => store[*prog].pointer(),
             AnyProg::Str(prog) => store[*prog].pointer(),
+            AnyProg::IntArray(prog) => store[*prog].pointer(),
         }
     }
 
@@ -157,6 +182,7 @@ impl AnyProg {
         match self {
             AnyProg::Int(prog) => store[*prog].level(),
             AnyProg::Str(prog) => store[*prog].level(),
+            AnyProg::IntArray(prog) => store[*prog].level(),
         }
     }
 }
@@ -170,5 +196,11 @@ impl From<PIdx<Int>> for AnyProg {
 impl From<PIdx<Str>> for AnyProg {
     fn from(value: PIdx<Str>) -> Self {
         Self::Str(value)
+    }
+}
+
+impl From<PIdx<IntArray>> for AnyProg {
+    fn from(value: PIdx<IntArray>) -> Self {
+        Self::IntArray(value)
     }
 }
