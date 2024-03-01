@@ -40,12 +40,6 @@ impl std::fmt::Debug for VIdx<IntArray> {
     }
 }
 
-// impl std::fmt::Debug for VIdx<IntArray> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "VIdx<Array<Int>>({})", self.i)
-//     }
-// }
-
 impl<T: Value> std::ops::Add<usize> for VIdx<T> {
     type Output = usize;
 
@@ -74,13 +68,31 @@ impl<T: Value> From<VIdx<T>> for usize {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PIdx<T: Value> {
     i: usize,
     _phantom_data: PhantomData<T>,
 }
 
 impl<T: Value> Copy for PIdx<T> {}
+
+impl std::fmt::Debug for PIdx<Int> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PIdx<Int>({})", self.i)
+    }
+}
+
+impl std::fmt::Debug for PIdx<Str> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PIdx<Str>({})", self.i)
+    }
+}
+
+impl std::fmt::Debug for PIdx<IntArray> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PIdx<IntArray>({})", self.i)
+    }
+}
 
 impl<T: Value> From<usize> for PIdx<T> {
     #[inline]
