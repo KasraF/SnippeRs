@@ -380,7 +380,7 @@ impl Store<IntArray> for Bank {
     }
 
     fn has_program(&self, idx: PIdx<IntArray>) -> bool {
-        self.strs.len() > idx.into()
+        self.int_arrs.len() > idx.into()
     }
 
     fn put_variable(
